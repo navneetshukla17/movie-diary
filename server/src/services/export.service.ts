@@ -10,12 +10,27 @@ const GREEN = '#4ade80';
 const TEXT = '#f5f0ff';
 const MUTED = '#b6a8d8';
 
+function isSafePosterUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'https:') return false;
+    const host = url.hostname.toLowerCase();
+    if (host === 'localhost' || host.endsWith('.local')) return false;
+    if (/^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function fetchPoster(url: string): Promise<Buffer | null> {
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return null;
+    const contentLength = Number(res.headers.get('content-length') ?? 0);
+    if (contentLength > 5 * 1024 * 1024) return null;
     const buf = Buffer.from(await res.arrayBuffer());
-    return buf.length > 0 ? buf : null;
+    return buf.length > 0 && buf.length <= 5 * 1024 * 1024 ? buf : null;
   } catch {
     return null;
   }
@@ -28,6 +43,18 @@ function formatDate(d: Date): string {
 export async function generateListPdf(userId: string, mode: Mode): Promise<Buffer> {
   const list = await getUserList(userId, mode);
   const movies = await prisma.movie.findMany({ where: { listId: list.id }, orderBy: { createdAt: 'desc' } });
+
+  const posterCache = new Map<string, Buffer | null>();
+  for (let i = 0; i < movies.length; i += 8) {
+    await Promise.all(
+      movies.slice(i, i + 8).map(async (movie) => {
+        posterCache.set(
+          movie.id,
+          movie.posterUrl && isSafePosterUrl(movie.posterUrl) ? await fetchPoster(movie.posterUrl) : null,
+        );
+      }),
+    );
+  }
 
   const doc = new PDFDocument({ size: 'A4', margin: 48 });
   const chunks: Buffer[] = [];
@@ -55,7 +82,7 @@ export async function generateListPdf(userId: string, mode: Mode): Promise<Buffe
     }
     doc.save();
     doc.rect(48, doc.y, doc.page.width - 96, 150).fill(CARD);
-    const poster = movie.posterUrl ? await fetchPoster(movie.posterUrl) : null;
+    const poster = posterCache.get(movie.id) ?? null;
     if (poster) {
       try {
         doc.image(poster, 64, doc.y + 12, { width: 90, height: 126 });
@@ -67,7 +94,10 @@ export async function generateListPdf(userId: string, mode: Mode): Promise<Buffe
     const top = doc.y;
     doc.fillColor(TEXT).font('Helvetica-Bold').fontSize(16).text(movie.title, x, top + 18, { width: doc.page.width - x - 64 });
     const meta: string[] = [];
-    if (movie.releaseDate) meta.push(movie.releaseDate.slice(0, 4));
+    if (movie.releaseDate) {
+      const year = movie.releaseDate.match(/(19|20)\d\d/)?.[0];
+      if (year) meta.push(year);
+    }
     const ratings = movie.providerRatings as Record<string, number> | null;
     if (ratings?.tmdb) meta.push(`TMDB ${ratings.tmdb}`);
     if (ratings?.imdb) meta.push(`IMDb ${ratings.imdb}`);
