@@ -12,7 +12,7 @@
 - Node v20.19.5, npm 10.8.2, Homebrew PostgreSQL 17 running as a service
 - Postgres binaries at `/opt/homebrew/opt/postgresql@17/bin` (keg-only — add to PATH)
 - Databases already created: `movie_list` (dev) and `movie_list_test` (tests)
-- Connection: `postgresql://localhost:5432/movie_list` (trust auth, OS user)
+- Connection: `postgresql://tusharshukla@localhost:5432/movie_list` (trust auth, OS user)
 
 ---
 
@@ -58,7 +58,7 @@ server/prisma/*.db
 - [ ] **Step 3: Write `server/.env.example`**
 
 ```
-DATABASE_URL=postgresql://localhost:5432/movie_list
+DATABASE_URL=postgresql://tusharshukla@localhost:5432/movie_list
 JWT_SECRET=change-me-to-a-long-random-string
 TMDB_API_KEY=
 OMDB_API_KEY=
@@ -107,7 +107,7 @@ git commit -m "chore: scaffold monorepo root"
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
-    "test": "DATABASE_URL=postgresql://localhost:5432/movie_list_test vitest run",
+    "test": "DATABASE_URL=postgresql://tusharshukla@localhost:5432/movie_list_test vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -371,7 +371,7 @@ describe('app', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `DATABASE_URL=postgresql://localhost:5432/movie_list_test npm test --workspace server -- --run src/app.test.ts`
+Run: `DATABASE_URL=postgresql://tusharshukla@localhost:5432/movie_list_test npm test --workspace server -- --run src/app.test.ts`
 Expected: FAIL — `Cannot find module '../app.js'`.
 
 - [ ] **Step 3: Write `server/src/utils/http.ts`**
@@ -495,7 +495,7 @@ export default router;
 
 - [ ] **Step 9: Run test to verify it passes**
 
-Run: `DATABASE_URL=postgresql://localhost:5432/movie_list_test npm test --workspace server -- --run src/app.test.ts`
+Run: `DATABASE_URL=postgresql://tusharshukla@localhost:5432/movie_list_test npm test --workspace server -- --run src/app.test.ts`
 Expected: PASS.
 
 - [ ] **Step 10: Verify typecheck**
@@ -579,7 +579,7 @@ describe('auth', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `DATABASE_URL=postgresql://localhost:5432/movie_list_test npm test --workspace server -- --run src/test/auth.test.ts`
+Run: `DATABASE_URL=postgresql://tusharshukla@localhost:5432/movie_list_test npm test --workspace server -- --run src/test/auth.test.ts`
 Expected: FAIL — signup returns 404 (route not implemented).
 
 - [ ] **Step 3: Write `server/src/middleware/auth.ts`**
@@ -695,7 +695,7 @@ export default router;
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `DATABASE_URL=postgresql://localhost:5432/movie_list_test npm test --workspace server -- --run src/test/auth.test.ts`
+Run: `DATABASE_URL=postgresql://tusharshukla@localhost:5432/movie_list_test npm test --workspace server -- --run src/test/auth.test.ts`
 Expected: PASS (all 7 tests).
 
 - [ ] **Step 6: Commit**
@@ -801,7 +801,7 @@ describe('lists & movies', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `DATABASE_URL=postgresql://localhost:5432/movie_list_test npm test --workspace server -- --run src/test/movies.test.ts`
+Run: `DATABASE_URL=postgresql://tusharshukla@localhost:5432/movie_list_test npm test --workspace server -- --run src/test/movies.test.ts`
 Expected: FAIL — 404s.
 
 - [ ] **Step 3: Write `server/src/services/lists.service.ts`**
@@ -962,7 +962,7 @@ export default router;
 
 - [ ] **Step 6: Run test to verify it passes**
 
-Run: `DATABASE_URL=postgresql://localhost:5432/movie_list_test npm test --workspace server -- --run src/test/movies.test.ts`
+Run: `DATABASE_URL=postgresql://tusharshukla@localhost:5432/movie_list_test npm test --workspace server -- --run src/test/movies.test.ts`
 Expected: PASS (all 7 tests).
 
 - [ ] **Step 7: Commit**
@@ -1052,7 +1052,7 @@ describe('metadata search', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `DATABASE_URL=postgresql://localhost:5432/movie_list_test npm test --workspace server -- --run src/test/metadata.test.ts`
+Run: `DATABASE_URL=postgresql://tusharshukla@localhost:5432/movie_list_test npm test --workspace server -- --run src/test/metadata.test.ts`
 Expected: FAIL — 404.
 
 - [ ] **Step 3: Write `server/src/services/metadata.service.ts`**
@@ -1261,7 +1261,7 @@ export default router;
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `DATABASE_URL=postgresql://localhost:5432/movie_list_test npm test --workspace server -- --run src/test/metadata.test.ts`
+Run: `DATABASE_URL=postgresql://tusharshukla@localhost:5432/movie_list_test npm test --workspace server -- --run src/test/metadata.test.ts`
 Expected: PASS (all 3 tests).
 
 - [ ] **Step 6: Add per-movie and bulk metadata tests to `server/src/test/metadata.test.ts`** (append)
@@ -1304,7 +1304,7 @@ describe('metadata fetch for stored movies', () => {
 
 - [ ] **Step 7: Run full metadata tests**
 
-Run: `DATABASE_URL=postgresql://localhost:5432/movie_list_test npm test --workspace server -- --run src/test/metadata.test.ts`
+Run: `DATABASE_URL=postgresql://tusharshukla@localhost:5432/movie_list_test npm test --workspace server -- --run src/test/metadata.test.ts`
 Expected: PASS (all 6 tests).
 
 - [ ] **Step 8: Commit**
@@ -1408,7 +1408,7 @@ describe('import', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `DATABASE_URL=postgresql://localhost:5432/movie_list_test npm test --workspace server -- --run src/test/import.test.ts`
+Run: `DATABASE_URL=postgresql://tusharshukla@localhost:5432/movie_list_test npm test --workspace server -- --run src/test/import.test.ts`
 Expected: FAIL — 404.
 
 - [ ] **Step 3: Write `server/src/types/pdf-parse.d.ts`**
@@ -1522,7 +1522,7 @@ export default router;
 
 - [ ] **Step 6: Run test to verify it passes**
 
-Run: `DATABASE_URL=postgresql://localhost:5432/movie_list_test npm test --workspace server -- --run src/test/import.test.ts`
+Run: `DATABASE_URL=postgresql://tusharshukla@localhost:5432/movie_list_test npm test --workspace server -- --run src/test/import.test.ts`
 Expected: PASS (all 6 tests).
 
 - [ ] **Step 7: Commit**
@@ -1567,7 +1567,7 @@ describe('pdf export', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `DATABASE_URL=postgresql://localhost:5432/movie_list_test npm test --workspace server -- --run src/test/export.test.ts`
+Run: `DATABASE_URL=postgresql://tusharshukla@localhost:5432/movie_list_test npm test --workspace server -- --run src/test/export.test.ts`
 Expected: FAIL — 404.
 
 - [ ] **Step 3: Write `server/src/services/export.service.ts`**
@@ -1688,7 +1688,7 @@ export default router;
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `DATABASE_URL=postgresql://localhost:5432/movie_list_test npm test --workspace server -- --run src/test/export.test.ts`
+Run: `DATABASE_URL=postgresql://tusharshukla@localhost:5432/movie_list_test npm test --workspace server -- --run src/test/export.test.ts`
 Expected: PASS (both tests).
 
 - [ ] **Step 6: Run all server tests + typecheck**
