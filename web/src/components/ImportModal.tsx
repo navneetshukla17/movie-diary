@@ -43,15 +43,17 @@ export function ImportModal({ mode, onClose, onImported, onError }: Props) {
     },
   });
 
+  const pending = upload.isPending || enrich.isPending;
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={pending ? undefined : onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         {prompt ? (
           <>
             <h2>Import movies' real data?</h2>
             <p>{pendingIds.length} movie(s) were added. Fetch posters, release dates, and ratings for them now?</p>
             <div className="modal-actions">
-              <button onClick={onClose}>Ignore</button>
+              <button disabled={enrich.isPending} onClick={onClose}>Ignore</button>
               <button className="primary" disabled={enrich.isPending} onClick={() => enrich.mutate()}>
                 Yes, import real data
               </button>
@@ -72,7 +74,7 @@ export function ImportModal({ mode, onClose, onImported, onError }: Props) {
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
             <div className="modal-actions">
-              <button onClick={onClose}>Cancel</button>
+              <button disabled={upload.isPending} onClick={onClose}>Cancel</button>
               <button className="primary" disabled={!file || upload.isPending} onClick={() => upload.mutate()}>
                 Import
               </button>

@@ -19,6 +19,7 @@ export function AddMovieModal({ mode, onClose, onAdded, onError }: Props) {
   const [watchStatus, setWatchStatus] = useState<'PLANNED' | 'WATCHING' | 'FINISHED'>('FINISHED');
   const [open, setOpen] = useState(false);
   const timer = useRef<number>();
+  const latestSearch = useRef(0);
 
   useEffect(() => {
     window.clearTimeout(timer.current);
@@ -26,16 +27,22 @@ export function AddMovieModal({ mode, onClose, onAdded, onError }: Props) {
       setSuggestions([]);
       return;
     }
+    if (title.trim() === selected?.title) {
+      return;
+    }
+    const searchId = ++latestSearch.current;
     timer.current = window.setTimeout(async () => {
       try {
         const { results } = await api.searchMetadata(title);
+        if (searchId !== latestSearch.current) return;
         setSuggestions(results);
-        setOpen(true);
+        setOpen(results.length > 0);
       } catch {
-        setSuggestions([]);
+        if (searchId === latestSearch.current) setSuggestions([]);
       }
     }, 300);
-  }, [title]);
+    return () => window.clearTimeout(timer.current);
+  }, [title, selected]);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -62,7 +69,7 @@ export function AddMovieModal({ mode, onClose, onAdded, onError }: Props) {
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={mutation.isPending ? undefined : onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h2>Add to {mode === 'ALONE' ? 'Alone' : 'US'} list</h2>
         <label htmlFor="add-title">Title</label>
@@ -93,7 +100,7 @@ export function AddMovieModal({ mode, onClose, onAdded, onError }: Props) {
             ))}
           </ul>
         )}
-        {selected && <p className="selected-meta">Metadata selected: {selected.title} ({selected.year})</p>}
+        {selected && <p className="selected-meta">Metadata selected: {selected.title} ({selected.year ?? ''})</p>}
         <label htmlFor="add-date">Watched date</label>
         <input id="add-date" type="date" value={watchedDate} onChange={(e) => setWatchedDate(e.target.value)} />
         <label htmlFor="add-rating">Personal rating</label>
@@ -118,7 +125,7 @@ export function AddMovieModal({ mode, onClose, onAdded, onError }: Props) {
           <option value="FINISHED">Finished</option>
         </select>
         <div className="modal-actions">
-          <button onClick={onClose}>Cancel</button>
+          <button disabled={mutation.isPending} onClick={onClose}>Cancel</button>
           <button className="primary" disabled={!title.trim() || mutation.isPending} onClick={() => mutation.mutate()}>
             Add
           </button>
