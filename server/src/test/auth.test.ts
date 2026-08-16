@@ -44,6 +44,31 @@ describe('auth', () => {
     expect(res.status).toBe(401);
   });
 
+  it('rejects a forged token on /me', async () => {
+    const res = await request(app).get('/api/auth/me').set('Authorization', 'Bearer not-a-real-token');
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects login for an unknown email', async () => {
+    const res = await request(app).post('/api/auth/login').send({ email: 'nobody@test.com', password: 'password123' });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects signup without a password', async () => {
+    const res = await request(app).post('/api/auth/signup').send({ email: 'nopw@test.com' });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects signup with an invalid defaultMode', async () => {
+    const res = await request(app).post('/api/auth/signup').send({ email: 'badmode@test.com', password: 'password123', defaultMode: 'EU' });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a password longer than 72 bytes', async () => {
+    const res = await request(app).post('/api/auth/signup').send({ email: 'longpw@test.com', password: 'x'.repeat(73) });
+    expect(res.status).toBe(400);
+  });
+
   it('updates the default mode', async () => {
     const { token } = await signupUser();
     const res = await request(app).patch('/api/auth/me').set(auth(token)).send({ defaultMode: 'US' });
