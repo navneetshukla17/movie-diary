@@ -14,3 +14,9 @@ export async function getUserList(userId: string, mode: Mode) {
   if (!list) throw new HttpError(404, 'List not found');
   return list;
 }
+
+export function parseDate(value: string): Date {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) throw new HttpError(400, 'Invalid date');
+  return d;
+}

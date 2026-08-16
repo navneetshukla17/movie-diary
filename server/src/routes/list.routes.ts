@@ -1,12 +1,14 @@
 import { Router } from 'express';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { asyncHandler, HttpError } from '../utils/http.js';
 import { toMovieJson } from '../utils/serializers.js';
-import { getUserList, parseMode } from '../services/lists.service.js';
+import { getUserList, parseDate, parseMode } from '../services/lists.service.js';
 
 const router = Router();
 const STATUSES = ['PLANNED', 'WATCHING', 'FINISHED'] as const;
+const PROVIDERS = ['TMDB', 'OMDB', 'IMPORT', 'MANUAL'] as const;
 
 router.get(
   '/lists/:mode/movies',
@@ -36,12 +38,17 @@ router.post(
       throw new HttpError(400, 'personalRating must be between 1 and 10');
     }
     if (watchedDate != null && typeof watchedDate !== 'string') throw new HttpError(400, 'watchedDate must be a date string');
-    const status = STATUSES.includes(watchStatus) ? watchStatus : 'PLANNED';
+    if (watchStatus !== undefined && !STATUSES.includes(watchStatus)) throw new HttpError(400, 'Invalid watch status');
+    const status = watchStatus ?? 'PLANNED';
+    if (metadata?.provider != null && !PROVIDERS.includes(metadata.provider)) throw new HttpError(400, 'Invalid metadata provider');
+    if (metadata?.providerRatings != null && (typeof metadata.providerRatings !== 'object' || metadata.providerRatings === null || Array.isArray(metadata.providerRatings))) {
+      throw new HttpError(400, 'providerRatings must be an object');
+    }
     const movie = await prisma.movie.create({
       data: {
         listId: list.id,
         title: cleanTitle,
-        watchedDate: watchedDate ? new Date(watchedDate) : null,
+        watchedDate: watchedDate ? parseDate(watchedDate) : null,
         personalRating: personalRating ?? null,
         watchStatus: status,
         posterUrl: metadata?.posterUrl ?? null,
@@ -64,8 +71,9 @@ router.patch(
     const movie = await prisma.movie.findFirst({ where: { id: req.params.id, listId: list.id } });
     if (!movie) throw new HttpError(404, 'Movie not found');
     const { title, watchedDate, personalRating, watchStatus } = req.body ?? {};
-    const data: Record<string, unknown> = {};
-    if (typeof title === 'string' && title.trim()) {
+    const data: Prisma.MovieUncheckedUpdateInput = {};
+    if (title !== undefined) {
+      if (typeof title !== 'string' || !title.trim()) throw new HttpError(400, 'Title cannot be empty');
       const cleanTitle = title.trim();
       if (cleanTitle !== movie.title) {
         const dup = await prisma.movie.findUnique({
@@ -75,7 +83,7 @@ router.patch(
       }
       data.title = cleanTitle;
     }
-    if (watchedDate !== undefined) data.watchedDate = watchedDate === null ? null : new Date(watchedDate);
+    if (watchedDate !== undefined) data.watchedDate = watchedDate === null ? null : parseDate(watchedDate);
     if (personalRating !== undefined) {
       if (personalRating !== null && (typeof personalRating !== 'number' || personalRating < 1 || personalRating > 10)) {
         throw new HttpError(400, 'personalRating must be between 1 and 10 or null');
