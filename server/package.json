@@ -9,7 +9,7 @@
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
-    "test": "DATABASE_URL=postgresql://localhost:5432/movie_list_test vitest run",
+    "test": "DATABASE_URL=postgresql://tusharshukla@localhost:5432/movie_list_test vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
