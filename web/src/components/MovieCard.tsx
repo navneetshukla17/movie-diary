@@ -59,6 +59,7 @@ export function MovieCard({ movie, mode, highlighted, onChanged, onError }: Prop
       onChanged();
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Could not delete movie');
+    } finally {
       setBusy(false);
     }
   }

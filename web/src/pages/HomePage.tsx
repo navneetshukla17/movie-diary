@@ -85,7 +85,7 @@ export function HomePage() {
 
       <div className="notice-area">
         {notice && <div className={`notice ${notice.kind}`}>{notice.text}</div>}
-        {!query.isLoading && entries.length === 0 && (
+        {!query.isLoading && !otherQuery.isLoading && entries.length === 0 && (
           <div className="no-results">
             {hasSearch ? 'No movies found for that search' : 'No movies yet — add or import some!'}
           </div>
