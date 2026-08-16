@@ -76,4 +76,50 @@ describe('lists & movies', () => {
     const res = await request(app).patch(`/api/lists/US/movies/${add.body.movie.id}`).set(auth(token)).send({ personalRating: 5 });
     expect(res.status).toBe(404);
   });
+
+  it('rejects an invalid watchedDate', async () => {
+    const { token } = await signupUser();
+    const res = await request(app).post('/api/lists/ALONE/movies').set(auth(token)).send({ title: 'Inception', watchedDate: 'garbage-date' });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects an invalid metadata provider', async () => {
+    const { token } = await signupUser();
+    const res = await request(app).post('/api/lists/ALONE/movies').set(auth(token)).send({ title: 'Inception', metadata: { provider: 'BOGUS' } });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects an invalid watchStatus on create', async () => {
+    const { token } = await signupUser();
+    const res = await request(app).post('/api/lists/ALONE/movies').set(auth(token)).send({ title: 'Inception', watchStatus: 'BINGED' });
+    expect(res.status).toBe(400);
+  });
+
+  it('requires auth to list movies', async () => {
+    const res = await request(app).get('/api/lists/ALONE/movies');
+    expect(res.status).toBe(401);
+  });
+
+  it('does not let another user touch your movie', async () => {
+    const alice = await signupUser();
+    const bob = await signupUser();
+    const add = await request(app).post('/api/lists/ALONE/movies').set(auth(alice.token)).send({ title: 'Inception' });
+    const res = await request(app).patch(`/api/lists/ALONE/movies/${add.body.movie.id}`).set(auth(bob.token)).send({ personalRating: 5 });
+    expect(res.status).toBe(404);
+  });
+
+  it('rejects renaming to an existing title', async () => {
+    const { token } = await signupUser();
+    await request(app).post('/api/lists/ALONE/movies').set(auth(token)).send({ title: 'Inception' });
+    const add = await request(app).post('/api/lists/ALONE/movies').set(auth(token)).send({ title: 'Inception 2' });
+    const res = await request(app).patch(`/api/lists/ALONE/movies/${add.body.movie.id}`).set(auth(token)).send({ title: 'Inception' });
+    expect(res.status).toBe(409);
+  });
+
+  it('returns 404 when deleting from the wrong list', async () => {
+    const { token } = await signupUser();
+    const add = await request(app).post('/api/lists/ALONE/movies').set(auth(token)).send({ title: 'Inception' });
+    const res = await request(app).delete(`/api/lists/US/movies/${add.body.movie.id}`).set(auth(token));
+    expect(res.status).toBe(404);
+  });
 });
