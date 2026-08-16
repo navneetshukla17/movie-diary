@@ -19,14 +19,19 @@ router.post(
     const { email, password, defaultMode } = req.body ?? {};
     if (typeof email !== 'string' || !email.includes('@')) throw new HttpError(400, 'A valid email is required');
     if (typeof password !== 'string' || password.length < 8) throw new HttpError(400, 'Password must be at least 8 characters');
-    const mode = MODES.includes(defaultMode) ? defaultMode : 'ALONE';
+    if (Buffer.byteLength(password, 'utf8') > 72) throw new HttpError(400, 'Password must be at most 72 characters');
+    if (defaultMode !== undefined && !MODES.includes(defaultMode)) throw new HttpError(400, 'defaultMode must be ALONE or US');
+    const mode = defaultMode ?? 'ALONE';
     const cleanEmail = email.trim().toLowerCase();
     const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
     if (existing) throw new HttpError(409, 'An account with this email already exists');
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = await prisma.user.create({ data: { email: cleanEmail, passwordHash, defaultMode: mode } });
-    await prisma.list.create({ data: { userId: user.id, mode: 'ALONE' } });
-    await prisma.list.create({ data: { userId: user.id, mode: 'US' } });
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({ data: { email: cleanEmail, passwordHash, defaultMode: mode } });
+      await tx.list.create({ data: { userId: created.id, mode: 'ALONE' } });
+      await tx.list.create({ data: { userId: created.id, mode: 'US' } });
+      return created;
+    });
     const token = jwt.sign({ userId: user.id }, config.jwtSecret, { expiresIn: '30d' });
     res.status(201).json({ token, user: toUserJson(user) });
   }),
