@@ -141,6 +141,6 @@ export const api = {
     a.href = url;
     a.download = `${mode.toLowerCase()}-list.pdf`;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 };
