@@ -47,6 +47,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { ids } = req.body ?? {};
     if (!Array.isArray(ids) || ids.length === 0) throw new HttpError(400, 'ids must be a non-empty array');
+    if (ids.length > 100) throw new HttpError(400, 'ids must be at most 100');
     const owned = await prisma.list.findMany({ where: { userId: req.user!.id }, select: { id: true } });
     const ownedIds = new Set(owned.map((l) => l.id));
     const movies = await prisma.movie.findMany({ where: { id: { in: ids } } });

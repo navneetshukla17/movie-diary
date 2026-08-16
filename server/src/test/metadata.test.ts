@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { app, auth, signupUser } from './helpers.js';
+import { clearMetadataCache } from '../services/metadata.service.js';
 
 const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
@@ -37,7 +38,10 @@ function mockProviders() {
 
 describe('metadata search', () => {
   beforeEach(() => fetchMock.mockReset());
-  afterEach(() => fetchMock.mockReset());
+  afterEach(() => {
+    fetchMock.mockReset();
+    clearMetadataCache();
+  });
 
   it('returns merged results from TMDB and OMDb', async () => {
     mockProviders();
@@ -61,11 +65,38 @@ describe('metadata search', () => {
     const res = await request(app).get('/api/metadata/search?query=Inception');
     expect(res.status).toBe(401);
   });
+
+  it('returns empty results when a provider is unavailable', async () => {
+    fetchMock.mockResolvedValue({ ok: false, json: async () => ({}) });
+    const { token } = await signupUser();
+    const res = await request(app).get('/api/metadata/search?query=Inception').set(auth(token));
+    expect(res.status).toBe(200);
+    expect(res.body.results).toEqual([]);
+  });
+
+  it('returns empty results when a provider call throws', async () => {
+    fetchMock.mockRejectedValue(new Error('network down'));
+    const { token } = await signupUser();
+    const res = await request(app).get('/api/metadata/search?query=Inception').set(auth(token));
+    expect(res.status).toBe(200);
+    expect(res.body.results).toEqual([]);
+  });
+
+  it('dedupes TMDB and OMDb results by title and year', async () => {
+    mockProviders();
+    const { token } = await signupUser();
+    const res = await request(app).get('/api/metadata/search?query=Inception').set(auth(token));
+    const inception = res.body.results.filter((r: { title: string }) => r.title === 'Inception');
+    expect(inception.length).toBe(1);
+  });
 });
 
 describe('metadata fetch for stored movies', () => {
   beforeEach(() => fetchMock.mockReset());
-  afterEach(() => fetchMock.mockReset());
+  afterEach(() => {
+    fetchMock.mockReset();
+    clearMetadataCache();
+  });
 
   it('fetches metadata for a title-only movie', async () => {
     mockProviders();
