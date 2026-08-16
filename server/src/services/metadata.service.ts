@@ -1,5 +1,15 @@
 import { config } from '../config.js';
 
+async function fetchJson(url: URL | string, timeoutMs = 5000): Promise<unknown> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 export interface MetadataResult {
   id: string;
   title: string;
@@ -21,9 +31,7 @@ async function searchTmdb(query: string): Promise<MetadataResult[]> {
   url.searchParams.set('query', query);
   url.searchParams.set('language', 'en-US');
   url.searchParams.set('include_adult', 'false');
-  const res = await fetch(url);
-  if (!res.ok) return [];
-  const data = (await res.json()) as {
+  const data = (await fetchJson(url)) as {
     results?: Array<{
       id: number;
       name?: string;
@@ -34,7 +42,8 @@ async function searchTmdb(query: string): Promise<MetadataResult[]> {
       poster_path?: string | null;
       vote_average?: number;
     }>;
-  };
+  } | null;
+  if (!data) return [];
   return (data.results ?? [])
     .filter((r) => r.media_type === 'movie' || r.media_type === 'tv')
     .map((r) => ({
@@ -55,21 +64,17 @@ async function searchOmdb(query: string): Promise<MetadataResult[]> {
   searchUrl.searchParams.set('apikey', config.omdbApiKey);
   searchUrl.searchParams.set('s', query);
   searchUrl.searchParams.set('type', 'movie');
-  const searchRes = await fetch(searchUrl);
-  if (!searchRes.ok) return [];
-  const data = (await searchRes.json()) as {
+  const data = (await fetchJson(searchUrl)) as {
     Response?: string;
     Search?: Array<{ imdbID: string; Title: string; Year: string; Poster: string; Type: string }>;
-  };
-  if (data.Response !== 'True') return [];
+  } | null;
+  if (!data || data.Response !== 'True') return [];
   const results = await Promise.all(
     (data.Search ?? []).slice(0, 5).map(async (r) => {
       const detailUrl = new URL('https://www.omdbapi.com/');
       detailUrl.searchParams.set('apikey', config.omdbApiKey);
       detailUrl.searchParams.set('i', r.imdbID);
-      const detail = (await fetch(detailUrl)
-        .then((res) => res.json())
-        .catch(() => ({}))) as { imdbRating?: string; Poster?: string; Released?: string };
+      const detail = ((await fetchJson(detailUrl)) ?? {}) as { imdbRating?: string; Poster?: string; Released?: string };
       return {
         id: `omdb-${r.imdbID}`,
         title: r.Title,
@@ -110,8 +115,12 @@ export async function searchMetadata(query: string): Promise<MetadataResult[]> {
   const [tmdb, omdb] = await Promise.all([searchTmdb(query.trim()), searchOmdb(query.trim())]);
   const merged = dedupe([...tmdb, ...omdb]);
   cache.set(key, merged);
-  setTimeout(() => cache.delete(key), TTL_MS);
+  setTimeout(() => cache.delete(key), TTL_MS).unref();
   return merged;
+}
+
+export function clearMetadataCache() {
+  cache.clear();
 }
 
 export async function fetchMetadataForTitle(title: string): Promise<MetadataResult | null> {
