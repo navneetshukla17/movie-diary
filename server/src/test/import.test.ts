@@ -74,4 +74,30 @@ describe('import', () => {
       .attach('file', Buffer.from('x'), 'movies.exe');
     expect(res.status).toBe(400);
   });
+
+  it('preserves titles with leading numbers', async () => {
+    const { token } = await signupUser();
+    const res = await request(app)
+      .post('/api/lists/ALONE/import')
+      .set(auth(token))
+      .attach('file', Buffer.from('8 Mile\n1917'), 'movies.txt');
+    expect(res.status).toBe(201);
+    expect(res.body.movies.map((m: { title: string }) => m.title)).toEqual(['8 Mile']);
+  });
+
+  it('requires a file', async () => {
+    const { token } = await signupUser();
+    const res = await request(app).post('/api/lists/ALONE/import').set(auth(token));
+    expect(res.status).toBe(400);
+  });
+
+  it('skips duplicates within the same file', async () => {
+    const { token } = await signupUser();
+    const res = await request(app)
+      .post('/api/lists/ALONE/import')
+      .set(auth(token))
+      .attach('file', Buffer.from('Tenet\nTenet'), 'movies.txt');
+    expect(res.status).toBe(201);
+    expect(res.body.movies.map((m: { title: string }) => m.title)).toEqual(['Tenet']);
+  });
 });

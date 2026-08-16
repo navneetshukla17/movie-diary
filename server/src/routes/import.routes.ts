@@ -5,13 +5,10 @@ import { requireAuth } from '../middleware/auth.js';
 import { asyncHandler, HttpError } from '../utils/http.js';
 import { toMovieJson } from '../utils/serializers.js';
 import { getUserList, parseMode } from '../services/lists.service.js';
-import { parseTextFile, parsePdfFile, parseImageFile } from '../services/import.service.js';
+import { IMAGE_EXTS, TEXT_EXTS, parseImageFile, parsePdfFile, parseTextFile } from '../services/import.service.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
-
-const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'webp', 'bmp'];
-const TEXT_EXTS = ['txt', 'text', 'md', 'csv'];
 
 router.post(
   '/lists/:mode/import',
@@ -31,17 +28,18 @@ router.post(
 
     const existing = await prisma.movie.findMany({ where: { listId: list.id }, select: { title: true } });
     const existingSet = new Set(existing.map((m) => m.title.toLowerCase()));
-    const movies = [];
-    for (const title of parsed.titles) {
-      if (existingSet.has(title.toLowerCase())) continue;
-      existingSet.add(title.toLowerCase());
-      movies.push(
-        await prisma.movie.create({
-          data: { listId: list.id, title, imported: true, metadataProvider: 'IMPORT' },
-        }),
-      );
-    }
-    res.status(201).json({ movies: movies.map(toMovieJson), skippedLines: parsed.skippedLines });
+    const created = await prisma.$transaction(async (tx) => {
+      const movies = [];
+      for (const title of parsed.titles) {
+        if (existingSet.has(title.toLowerCase())) continue;
+        existingSet.add(title.toLowerCase());
+        movies.push(
+          await tx.movie.create({ data: { listId: list.id, title, imported: true, metadataProvider: 'IMPORT' } }),
+        );
+      }
+      return movies;
+    });
+    res.status(201).json({ movies: created.map(toMovieJson), skippedLines: parsed.skippedLines });
   }),
 );
 
