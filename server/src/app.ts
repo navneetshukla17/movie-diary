@@ -23,6 +23,7 @@ export function createApp() {
   app.use('/api', importRoutes);
   app.use('/api', exportRoutes);
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+  app.use('/api', (_req, res) => res.status(404).json({ error: { message: 'Not found' } }));
 
   const dist = path.resolve(__dirname, '../../web/dist');
   if (fs.existsSync(dist)) {
