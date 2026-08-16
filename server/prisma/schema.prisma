@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Mode {
+  ALONE
+  US
+}
+
+enum WatchStatus {
+  PLANNED
+  WATCHING
+  FINISHED
+}
+
+enum MetadataProvider {
+  TMDB
+  OMDB
+  IMPORT
+  MANUAL
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  defaultMode  Mode     @default(ALONE)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  lists        List[]
+}
+
+model List {
+  id        String   @id @default(uuid())
+  userId    String
+  mode      Mode
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movies    Movie[]
+
+  @@unique([userId, mode])
+}
+
+model Movie {
+  id               String           @id @default(uuid())
+  listId           String
+  title            String
+  watchedDate      DateTime?
+  personalRating   Int?
+  watchStatus      WatchStatus      @default(PLANNED)
+  posterUrl        String?
+  releaseDate      String?
+  providerRatings  Json?
+  metadataProvider MetadataProvider?
+  imported         Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  list             List             @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, title])
+}
