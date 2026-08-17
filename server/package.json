@@ -6,7 +6,6 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
-    "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "test": "DATABASE_URL=postgresql://tusharshukla@localhost:5432/movie_list_test vitest run",

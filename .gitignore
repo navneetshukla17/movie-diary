@@ -7,3 +7,4 @@ server/prisma/*.db
 *.traineddata
 test-ocr-tmp/
 *.pdf
+.vercel
