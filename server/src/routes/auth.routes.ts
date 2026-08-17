@@ -68,4 +68,44 @@ router.patch(
   }),
 );
 
+router.patch(
+  '/password',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.body ?? {};
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
+      throw new HttpError(400, 'Current and new password are required');
+    }
+    if (newPassword.length < 8) {
+      throw new HttpError(400, 'New password must be at least 8 characters');
+    }
+    if (Buffer.byteLength(newPassword, 'utf8') > 72) {
+      throw new HttpError(400, 'New password must be at most 72 characters');
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!user || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
+      throw new HttpError(401, 'Invalid current password');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    });
+
+    res.json({ success: true });
+  }),
+);
+
+router.delete(
+  '/account',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    // Delete the user. Cascading deletes will handle lists and movies.
+    await prisma.user.delete({ where: { id: req.user!.id } });
+    res.json({ success: true });
+  }),
+);
+
 export default router;

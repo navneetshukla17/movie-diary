@@ -27,7 +27,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const mode = parseMode(req.params.mode!);
     const list = await getUserList(req.user!.id, mode);
-    const { title, watchedDate, personalRating, watchStatus, metadata } = req.body ?? {};
+    const { title, watchedDate, personalRating, watchStatus, metadata, review, plannedDate } = req.body ?? {};
     if (typeof title !== 'string' || !title.trim()) throw new HttpError(400, 'Title is required');
     const cleanTitle = title.trim();
     const existing = await prisma.movie.findUnique({
@@ -44,6 +44,8 @@ router.post(
     if (metadata?.providerRatings != null && (typeof metadata.providerRatings !== 'object' || metadata.providerRatings === null || Array.isArray(metadata.providerRatings))) {
       throw new HttpError(400, 'providerRatings must be an object');
     }
+    if (review !== undefined && review !== null && typeof review !== 'string') throw new HttpError(400, 'review must be a string');
+    if (plannedDate != null && typeof plannedDate !== 'string') throw new HttpError(400, 'plannedDate must be a date string');
     const movie = await prisma.movie.create({
       data: {
         listId: list.id,
@@ -55,6 +57,8 @@ router.post(
         releaseDate: metadata?.releaseDate ?? null,
         providerRatings: metadata?.providerRatings ?? undefined,
         metadataProvider: metadata?.provider ?? null,
+        review: review ?? null,
+        plannedDate: plannedDate ? parseDate(plannedDate) : null,
         imported: false,
       },
     });
@@ -70,7 +74,7 @@ router.patch(
     const list = await getUserList(req.user!.id, mode);
     const movie = await prisma.movie.findFirst({ where: { id: req.params.id, listId: list.id } });
     if (!movie) throw new HttpError(404, 'Movie not found');
-    const { title, watchedDate, personalRating, watchStatus } = req.body ?? {};
+    const { title, watchedDate, personalRating, watchStatus, review, plannedDate, metadata } = req.body ?? {};
     const data: Prisma.MovieUncheckedUpdateInput = {};
     if (title !== undefined) {
       if (typeof title !== 'string' || !title.trim()) throw new HttpError(400, 'Title cannot be empty');
@@ -94,6 +98,21 @@ router.patch(
       if (!STATUSES.includes(watchStatus)) throw new HttpError(400, 'Invalid watch status');
       data.watchStatus = watchStatus;
     }
+    if (review !== undefined) {
+      if (review !== null && typeof review !== 'string') throw new HttpError(400, 'review must be a string');
+      data.review = review;
+    }
+    if (plannedDate !== undefined) data.plannedDate = plannedDate === null ? null : parseDate(plannedDate);
+    if (metadata) {
+      if (metadata.provider != null && !PROVIDERS.includes(metadata.provider)) throw new HttpError(400, 'Invalid metadata provider');
+      if (metadata.providerRatings != null && (typeof metadata.providerRatings !== 'object' || metadata.providerRatings === null || Array.isArray(metadata.providerRatings))) {
+        throw new HttpError(400, 'providerRatings must be an object');
+      }
+      data.posterUrl = metadata.posterUrl ?? null;
+      data.releaseDate = metadata.releaseDate ?? null;
+      data.providerRatings = metadata.providerRatings ?? undefined;
+      data.metadataProvider = metadata.provider ?? null;
+    }
     const updated = await prisma.movie.update({ where: { id: movie.id }, data });
     res.json({ movie: toMovieJson(updated) });
   }),
@@ -109,6 +128,26 @@ router.delete(
     if (!movie) throw new HttpError(404, 'Movie not found');
     await prisma.movie.delete({ where: { id: movie.id } });
     res.json({ success: true });
+  }),
+);
+
+router.post(
+  '/lists/:mode/movies/delete-many',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const mode = parseMode(req.params.mode!);
+    const list = await getUserList(req.user!.id, mode);
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new HttpError(400, 'ids array is required');
+    }
+    await prisma.movie.deleteMany({
+      where: {
+        id: { in: ids },
+        listId: list.id,
+      },
+    });
+    res.json({ success: true, count: ids.length });
   }),
 );
 

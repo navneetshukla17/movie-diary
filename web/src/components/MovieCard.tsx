@@ -1,62 +1,45 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { api, type Movie } from '../api/client';
+import { Star } from 'lucide-react';
+import { EditMovieModal } from './EditMovieModal';
 
 interface Props {
   movie: Movie;
   mode: string;
   highlighted: boolean;
-  onChanged: () => void;
+  onChanged: (message: string) => void;
   onError: (message: string) => void;
+  isSelecting?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
+  onLongPress?: () => void;
 }
 
-const STATUSES = ['PLANNED', 'WATCHING', 'FINISHED'] as const;
-
-export function MovieCard({ movie, mode, highlighted, onChanged, onError }: Props) {
-  const [editing, setEditing] = useState(false);
-  const [title, setTitle] = useState(movie.title);
-  const [watchedDate, setWatchedDate] = useState(movie.watchedDate ? movie.watchedDate.slice(0, 10) : '');
-  const [personalRating, setPersonalRating] = useState<number | null>(movie.personalRating);
-  const [watchStatus, setWatchStatus] = useState(movie.watchStatus);
-  const [busy, setBusy] = useState(false);
+export function MovieCard({
+  movie, mode, highlighted, onChanged, onError,
+  isSelecting, isSelected, onToggleSelect, onLongPress,
+}: Props) {
+  const [showEdit, setShowEdit] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const titleOnly = movie.imported && !movie.posterUrl;
+  const longPressTimer = useRef<number>();
 
-  async function fetchMetadata() {
-    setBusy(true);
-    try {
-      await api.fetchMetadata(movie.id);
-      onChanged();
-    } catch (err) {
-      onError(err instanceof Error ? err.message : 'Could not fetch metadata');
-    } finally {
-      setBusy(false);
+  function handleTouchStart() {
+    if (window.innerWidth <= 768 && !isSelecting) {
+      longPressTimer.current = window.setTimeout(() => onLongPress?.(), 500);
     }
   }
 
-  async function save() {
-    setBusy(true);
-    try {
-      await api.updateMovie(mode, movie.id, {
-        title: title.trim(),
-        watchedDate: watchedDate ? new Date(watchedDate).toISOString() : null,
-        personalRating,
-        watchStatus,
-      });
-      setEditing(false);
-      onChanged();
-    } catch (err) {
-      onError(err instanceof Error ? err.message : 'Could not save changes');
-    } finally {
-      setBusy(false);
-    }
+  function handleTouchEnd() {
+    clearTimeout(longPressTimer.current);
   }
 
   async function remove() {
     setBusy(true);
     try {
       await api.deleteMovie(mode, movie.id);
-      onChanged();
+      onChanged('Movie deleted!');
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Could not delete movie');
     } finally {
@@ -65,75 +48,164 @@ export function MovieCard({ movie, mode, highlighted, onChanged, onError }: Prop
   }
 
   const ratings = movie.providerRatings as Record<string, number> | null;
+  const titleOnly = movie.imported && !movie.posterUrl;
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return `${d.getDate()} / ${d.toLocaleString('en-US', { month: 'short' })} / ${d.getFullYear()}`;
+  };
+
+  async function fetchMetadata() {
+    setBusy(true);
+    try {
+      await api.fetchMetadata(movie.id);
+      onChanged('Movie data fetched!');
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Could not fetch metadata');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    <article className={`card ${highlighted ? 'card-highlight' : ''}`}>
-      <div className="card-poster">
-        {movie.posterUrl ? (
-          <img src={movie.posterUrl} alt={movie.title} />
-        ) : (
-          <div className="poster-placeholder">{movie.title.slice(0, 2).toUpperCase()}</div>
-        )}
-        {titleOnly && (
-          <button className="mini-btn" disabled={busy} onClick={fetchMetadata}>
-            Fetch real data
-          </button>
-        )}
-      </div>
-      <div className="card-body">
-        {editing ? (
-          <>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Title" />
-            <input type="date" value={watchedDate} onChange={(e) => setWatchedDate(e.target.value)} aria-label="Watched date" />
-            <select value={personalRating ?? ''} onChange={(e) => setPersonalRating(e.target.value === '' ? null : Number(e.target.value))} aria-label="Rating">
-              <option value="">Not rated</option>
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                <option key={n} value={n}>{n}★</option>
-              ))}
-            </select>
-            <select value={watchStatus} onChange={(e) => setWatchStatus(e.target.value as (typeof STATUSES)[number])} aria-label="Status">
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>{s.toLowerCase()}</option>
-              ))}
-            </select>
-            <div className="card-actions">
-              <button disabled={busy} onClick={save}>Save</button>
-              <button onClick={() => setEditing(false)}>Cancel</button>
+    <>
+      <article
+        className={`card ${highlighted ? 'card-highlight' : ''} ${isSelected ? 'selected' : ''}`}
+        style={{
+          position: 'relative',
+          cursor: isSelecting ? 'pointer' : 'default',
+          opacity: isSelecting ? (isSelected ? 1 : 0.7) : 1,
+          borderRadius: 10,
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onClick={isSelecting ? () => onToggleSelect?.() : undefined}
+      >
+        {/* Poster */}
+        <div className="card-poster" style={{ position: 'relative' }}>
+          {isSelecting && (
+            <div style={{
+              position: 'absolute', top: 8, left: 8, zIndex: 10,
+              width: 24, height: 24, borderRadius: 4,
+              border: '2px solid white', background: isSelected ? 'var(--cyan)' : 'rgba(0,0,0,0.5)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {isSelected && <span style={{ color: '#1a1033', fontWeight: 'bold' }}>✓</span>}
             </div>
-          </>
-        ) : (
-          <>
-            <h3>{movie.title}</h3>
-            <p className="meta">
-              {movie.releaseDate ? movie.releaseDate.slice(0, 4) : '—'}
-              {ratings && (ratings.tmdb != null || ratings.imdb != null) && (
-                <>
-                  {' · '}
-                  {ratings.tmdb != null && `TMDB ${ratings.tmdb}`}
-                  {ratings.tmdb != null && ratings.imdb != null && ' · '}
-                  {ratings.imdb != null && `IMDb ${ratings.imdb}`}
-                </>
-              )}
-            </p>
-            <p className="badge-row">
-              <span className={`badge badge-${movie.watchStatus.toLowerCase()}`}>{movie.watchStatus.toLowerCase()}</span>
-              {movie.personalRating != null && <span className="rating">{movie.personalRating}★</span>}
-              {movie.watchedDate && <span className="date">{movie.watchedDate.slice(0, 10)}</span>}
-            </p>
-            <div className="card-actions">
-              <button onClick={() => setEditing(true)}>Edit</button>
-              {confirmDelete ? (
-                <>
-                  <button className="danger" disabled={busy} onClick={remove}>Confirm</button>
-                  <button onClick={() => setConfirmDelete(false)}>No</button>
-                </>
-              ) : (
-                <button className="danger" onClick={() => setConfirmDelete(true)}>Delete</button>
-              )}
+          )}
+          {movie.posterUrl
+            ? <img src={movie.posterUrl} alt={movie.title} />
+            : <div className="poster-placeholder">{movie.title.slice(0, 2).toUpperCase()}</div>}
+          {titleOnly && (
+            <div style={{ position: 'absolute', bottom: 8, left: 8, right: 8 }}>
+              <button className="mini-btn" disabled={busy} onClick={fetchMetadata} style={{ width: '100%' }}>
+                {busy ? 'Loading…' : 'Fetch data'}
+              </button>
             </div>
-          </>
-        )}
-      </div>
-    </article>
+          )}
+        </div>
+
+        {/* Card body */}
+        <div className="card-body" style={{ pointerEvents: isSelecting ? 'none' : 'auto' }}>
+          <h3>{movie.title}</h3>
+          <p className="meta">
+            {movie.releaseDate ? movie.releaseDate.slice(0, 4) : '—'}
+            {ratings && (ratings.tmdb != null || ratings.imdb != null) && (
+              <>
+                {' · '}
+                {ratings.tmdb != null && `TMDB ${ratings.tmdb}`}
+                {ratings.tmdb != null && ratings.imdb != null && ' · '}
+                {ratings.imdb != null && `IMDb ${ratings.imdb}`}
+              </>
+            )}
+          </p>
+          <p className="badge-row">
+            <span className={`badge badge-${movie.watchStatus.toLowerCase()}`}>{movie.watchStatus.toLowerCase()}</span>
+            {movie.watchStatus === 'PLANNED' && movie.plannedDate && (
+              <span className="date">📅 {formatDate(movie.plannedDate)}</span>
+            )}
+            {movie.watchStatus !== 'PLANNED' && movie.watchedDate && (
+              <span className="date">👁 {formatDate(movie.watchedDate)}</span>
+            )}
+          </p>
+          {movie.personalRating != null && (
+            <div style={{ display: 'flex', gap: 2, color: 'var(--yellow)', margin: '2px 0' }}>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star key={i} size={14} fill={i < movie.personalRating! ? 'currentColor' : 'none'} style={{ opacity: i < movie.personalRating! ? 1 : 0.3 }} />
+              ))}
+            </div>
+          )}
+          {movie.review && (
+            <p style={{
+              fontSize: 12, fontStyle: 'italic', color: 'var(--text)', margin: '4px 0 0',
+              borderLeft: '3px solid var(--pink)', paddingLeft: 8, lineHeight: 1.4,
+              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+            }}>
+              "{movie.review}"
+            </p>
+          )}
+
+          {/* Edit / Delete action buttons */}
+          <div className="card-actions">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowEdit(true);
+              }}
+              style={{ flex: 1 }}
+            >
+              Edit
+            </button>
+            {confirmDelete ? (
+              <>
+                <button
+                  className="danger"
+                  disabled={busy}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    remove();
+                  }}
+                  style={{ flex: 1 }}
+                >
+                  Sure?
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmDelete(false);
+                  }}
+                  style={{ flex: 1 }}
+                >
+                  No
+                </button>
+              </>
+            ) : (
+              <button
+                className="danger"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setConfirmDelete(true);
+                }}
+                style={{ flex: 1 }}
+              >
+                Delete
+              </button>
+            )}
+          </div>
+        </div>
+      </article>
+
+      {/* Edit bottom-sheet modal */}
+      {showEdit && (
+        <EditMovieModal
+          movie={movie}
+          mode={mode}
+          onClose={() => setShowEdit(false)}
+          onSaved={onChanged}
+          onError={onError}
+        />
+      )}
+    </>
   );
 }

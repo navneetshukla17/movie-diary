@@ -8,7 +8,9 @@ export interface Movie {
   id: string;
   title: string;
   watchedDate: string | null;
+  plannedDate: string | null;
   personalRating: number | null;
+  review: string | null;
   watchStatus: 'PLANNED' | 'WATCHING' | 'FINISHED';
   posterUrl: string | null;
   releaseDate: string | null;
@@ -26,8 +28,9 @@ export interface MetadataResult {
   mediaType: 'movie' | 'tv';
   posterUrl: string | null;
   releaseDate: string | null;
+  overview?: string | null;
   providerRatings: Record<string, number> | null;
-  provider: 'TMDB' | 'OMDB';
+  provider: 'TMDB' | 'OMDB' | 'IMPORT';
 }
 
 const TOKEN_KEY = 'movie_list_token';
@@ -84,13 +87,21 @@ export const api = {
   me: () => request<{ user: User }>('/auth/me'),
   updateMe: (defaultMode: string) =>
     request<{ user: User }>('/auth/me', { method: 'PATCH', body: JSON.stringify({ defaultMode }) }),
+  updatePassword: (currentPassword: string, newPassword: string) =>
+    request<{ success: boolean }>('/auth/password', {
+      method: 'PATCH',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+  deleteAccount: () => request<{ success: boolean }>('/auth/account', { method: 'DELETE' }),
   listMovies: (mode: string) => request<{ movies: Movie[] }>(`/lists/${mode}/movies`),
   addMovie: (
     mode: string,
     body: {
       title: string;
       watchedDate: string | null;
+      plannedDate?: string | null;
       personalRating: number | null;
+      review?: string | null;
       watchStatus: string;
       metadata?: MetadataResult | null;
     },
@@ -105,8 +116,11 @@ export const api = {
     body: Partial<{
       title: string;
       watchedDate: string | null;
+      plannedDate: string | null;
       personalRating: number | null;
+      review: string | null;
       watchStatus: string;
+      metadata?: MetadataResult | null;
     }>,
   ) =>
     request<{ movie: Movie }>(`/lists/${mode}/movies/${id}`, {
@@ -115,15 +129,21 @@ export const api = {
     }),
   deleteMovie: (mode: string, id: string) =>
     request<{ success: boolean }>(`/lists/${mode}/movies/${id}`, { method: 'DELETE' }),
+  deleteMovies: (mode: string, ids: string[]) =>
+    request<{ success: boolean }>(`/lists/${mode}/movies/delete-many`, {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    }),
   searchMetadata: (query: string) =>
     request<{ results: MetadataResult[] }>(`/metadata/search?query=${encodeURIComponent(query)}`),
   fetchMetadata: (id: string) =>
     request<{ movie: Movie }>(`/movies/${id}/metadata`, { method: 'POST' }),
   fetchBulkMetadata: (ids: string[]) =>
     request<{ movies: Movie[] }>('/import/metadata', { method: 'POST', body: JSON.stringify({ ids }) }),
-  importFile: (mode: string, file: File) => {
+  importFile: (mode: string, file: File, watchStatus: 'PLANNED' | 'FINISHED') => {
     const form = new FormData();
     form.append('file', file);
+    form.append('watchStatus', watchStatus);
     return request<{ movies: Movie[]; skippedLines: string[] }>(`/lists/${mode}/import`, {
       method: 'POST',
       body: form,

@@ -2477,8 +2477,8 @@ export function SignupPage() {
         <input id="signup-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
         <label htmlFor="signup-mode">What will this list be for?</label>
         <select id="signup-mode" value={mode} onChange={(e) => setMode(e.target.value as 'ALONE' | 'US')}>
-          <option value="ALONE">Alone — I watched it solo</option>
-          <option value="US">US — we watched it together</option>
+          <option value="ALONE">Alone — I watch it solo</option>
+          <option value="US">US — we watch it together</option>
         </select>
         <button className="primary" disabled={busy}>Sign up</button>
         <p className="alt">Already have an account? <Link to="/login">Sign in</Link></p>
@@ -3010,7 +3010,7 @@ export function AddMovieModal({ mode, onClose, onAdded, onError }: Props) {
             ))}
           </ul>
         )}
-        {selected && <p className="selected-meta">Metadata selected: {selected.title} ({selected.year})</p>}
+        {selected && <p className="selected-meta">{selected.title} ({selected.year})</p>}
         <label htmlFor="add-date">Watched date</label>
         <input id="add-date" type="date" value={watchedDate} onChange={(e) => setWatchedDate(e.target.value)} />
         <label htmlFor="add-rating">Personal rating</label>

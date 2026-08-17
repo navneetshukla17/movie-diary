@@ -5,3 +5,5 @@ dist/
 .DS_Store
 server/prisma/*.db
 *.traineddata
+test-ocr-tmp/
+*.pdf
