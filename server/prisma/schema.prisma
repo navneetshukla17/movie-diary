@@ -57,6 +57,8 @@ model Movie {
   posterUrl        String?
   releaseDate      String?
   providerRatings  Json?
+  review           String?
+  plannedDate      DateTime?
   metadataProvider MetadataProvider?
   imported         Boolean          @default(false)
   createdAt        DateTime         @default(now())

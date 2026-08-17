@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: movie-diary
+    env: node
+    plan: free
+    buildCommand: npm install && npx prisma generate --schema=server/prisma/schema.prisma && npm run build
+    startCommand: npx prisma db push --schema=server/prisma/schema.prisma && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: movie-diary-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: TMDB_API_KEY
+        sync: false
+      - key: OMDB_API_KEY
+        sync: false
+
+databases:
+  - name: movie-diary-db
+    plan: free
