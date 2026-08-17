@@ -1,6 +1,5 @@
 import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { createWorker } from 'tesseract.js';
-import { convert as convertPdf } from 'pdf-img-convert';
 import { HttpError } from '../utils/http.js';
 import zlib from 'zlib';
 import { promisify } from 'util';
@@ -93,24 +92,12 @@ export async function parsePdfFile(buffer: Buffer): Promise<ParsedTitles> {
     return parseTitlesFromText(text);
   }
 
-  // --- Tier 2: pdf-img-convert + Tesseract OCR (for digitally-rendered PDFs) ---
-  try {
-    const imageArrays = await convertPdf(buffer);
-    if (imageArrays && imageArrays.length > 0) {
-      const worker = await createWorker('eng');
-      try {
-        for (const imgArray of imageArrays) {
-          const { data: ocr } = await worker.recognize(Buffer.from(imgArray));
-          text += '\n' + (ocr.text ?? '');
-        }
-      } finally {
-        await worker.terminate();
-      }
-    }
-    if (text.trim()) return parseTitlesFromText(text);
-  } catch (err) {
-    console.log('pdf-img-convert failed, trying direct JPEG extraction:', err instanceof Error ? err.message : String(err));
+  if (text.trim()) {
+    return parseTitlesFromText(text);
   }
+
+  // --- Tier 2: Direct JPEG stream extraction + Tesseract OCR (cross-platform, pure JS/Node) ---
+  // For PDFs with embedded image streams. Works universally without native canvas binaries.
 
   // --- Tier 3: Direct JPEG extraction + OCR (cross-platform, no OS tools needed) ---
   // For PDFs with embedded FlateDecode+DCTDecode (zlib-wrapped JPEG) image streams.
