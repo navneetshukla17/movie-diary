@@ -26,11 +26,18 @@ router.post(
     const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
     if (existing) throw new HttpError(409, 'An account with this email already exists');
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = await prisma.$transaction(async (tx) => {
-      const created = await tx.user.create({ data: { email: cleanEmail, passwordHash, defaultMode: mode } });
-      await tx.list.create({ data: { userId: created.id, mode: 'ALONE' } });
-      await tx.list.create({ data: { userId: created.id, mode: 'US' } });
-      return created;
+    const user = await prisma.user.create({
+      data: {
+        email: cleanEmail,
+        passwordHash,
+        defaultMode: mode,
+        lists: {
+          create: [
+            { mode: 'ALONE' },
+            { mode: 'US' },
+          ],
+        },
+      },
     });
     const token = jwt.sign({ userId: user.id }, config.jwtSecret, { expiresIn: '30d' });
     res.status(201).json({ token, user: toUserJson(user) });

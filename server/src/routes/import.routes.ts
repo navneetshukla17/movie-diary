@@ -26,20 +26,25 @@ router.post(
     else throw new HttpError(400, 'Unsupported file type. Use text, PDF, or an image');
     if (parsed.titles.length === 0) throw new HttpError(422, 'No movie titles could be read from this file');
 
-    const watchStatus = req.body?.watchStatus === 'FINISHED' ? 'FINISHED' : 'PLANNED';
+    const watchStatus: 'FINISHED' | 'PLANNED' = req.body?.watchStatus === 'FINISHED' ? 'FINISHED' : 'PLANNED';
     const existing = await prisma.movie.findMany({ where: { listId: list.id }, select: { title: true } });
     const existingSet = new Set(existing.map((m) => m.title.toLowerCase()));
-    const created = await prisma.$transaction(async (tx) => {
-      const movies = [];
-      for (const title of parsed.titles) {
-        if (existingSet.has(title.toLowerCase())) continue;
-        existingSet.add(title.toLowerCase());
-        movies.push(
-          await tx.movie.create({ data: { listId: list.id, title, imported: true, metadataProvider: 'IMPORT', watchStatus } }),
-        );
-      }
-      return movies;
-    });
+    const moviesToCreate = [];
+    for (const title of parsed.titles) {
+      if (existingSet.has(title.toLowerCase())) continue;
+      existingSet.add(title.toLowerCase());
+      moviesToCreate.push({
+        listId: list.id,
+        title,
+        imported: true,
+        metadataProvider: 'IMPORT' as const,
+        watchStatus,
+      });
+    }
+    const created = [];
+    for (const m of moviesToCreate) {
+      created.push(await prisma.movie.create({ data: m }));
+    }
     res.status(201).json({ movies: created.map(toMovieJson), skippedLines: parsed.skippedLines });
   }),
 );
