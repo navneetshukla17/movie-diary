@@ -18,12 +18,22 @@ export function createApp() {
   app.use(express.json({ limit: '1mb' }));
 
   app.use('/api/auth', authRoutes);
+  app.use('/auth', authRoutes);
+
   app.use('/api', listRoutes);
+  app.use('/', listRoutes);
+
   app.use('/api', metadataRoutes);
+  app.use('/', metadataRoutes);
+
   app.use('/api', importRoutes);
+  app.use('/', importRoutes);
+
   app.use('/api', exportRoutes);
+  app.use('/', exportRoutes);
+
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
-  app.use('/api', (_req, res) => res.status(404).json({ error: { message: 'Not found' } }));
+  app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
   const dist = path.resolve(__dirname, '../../web/dist');
   if (fs.existsSync(dist)) {
