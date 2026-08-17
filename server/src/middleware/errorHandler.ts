@@ -20,6 +20,7 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     res.status(status).json({ error: { message: err instanceof Error ? err.message : 'Bad request' } });
     return;
   }
-  console.error(err);
-  res.status(500).json({ error: { message: 'Something went wrong' } });
+  console.error('[Unhandled Error]', err);
+  const errMsg = err instanceof Error ? err.message : String(err);
+  res.status(500).json({ error: { message: errMsg || 'Something went wrong' } });
 };
