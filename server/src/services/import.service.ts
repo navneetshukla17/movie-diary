@@ -36,6 +36,78 @@ export async function parseTextFile(buffer: Buffer): Promise<ParsedTitles> {
 }
 
 /**
+ * Calls the Gemini ListModels API and returns the best available model
+ * that supports generateContent (vision). Result is cached in memory.
+ */
+let resolvedGeminiModel: string | null = null;
+
+// Preferred model order — newest / most capable first
+const PREFERRED_MODELS = [
+  'gemini-2.5-flash-preview-05-20',
+  'gemini-2.5-flash',
+  'gemini-2.5-pro-preview-05-06',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-exp',
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
+  'gemini-1.5-pro',
+];
+
+async function resolveGeminiModel(apiKey: string): Promise<string> {
+  if (resolvedGeminiModel) return resolvedGeminiModel;
+
+  // If the user has explicitly set a model, use it directly
+  if (config.geminiModel && config.geminiModel !== 'gemini-2.5-flash-preview-05-20') {
+    resolvedGeminiModel = config.geminiModel;
+    return resolvedGeminiModel;
+  }
+
+  try {
+    const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=100`;
+    const res = await fetch(listUrl, { signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const data = (await res.json()) as {
+        models?: Array<{ name: string; supportedGenerationMethods?: string[] }>;
+      };
+      const available = new Set(
+        (data.models ?? [])
+          .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
+          .map((m) => m.name.replace('models/', '')),
+      );
+      console.log('Available Gemini models:', [...available].join(', '));
+      // Pick the first preferred model that is available
+      for (const candidate of PREFERRED_MODELS) {
+        if (available.has(candidate)) {
+          console.log(`Resolved Gemini model: ${candidate}`);
+          resolvedGeminiModel = candidate;
+          return resolvedGeminiModel;
+        }
+      }
+      // Fallback: pick any model that supports generateContent and has "flash" in the name
+      const anyFlash = [...available].find((m) => m.includes('flash'));
+      if (anyFlash) {
+        console.log(`Fallback Gemini model: ${anyFlash}`);
+        resolvedGeminiModel = anyFlash;
+        return resolvedGeminiModel;
+      }
+      // Last resort: pick any available generateContent model
+      const anyModel = [...available][0];
+      if (anyModel) {
+        console.log(`Last-resort Gemini model: ${anyModel}`);
+        resolvedGeminiModel = anyModel;
+        return resolvedGeminiModel;
+      }
+    }
+  } catch (err) {
+    console.warn('Gemini ListModels failed, falling back to default:', err);
+  }
+
+  // Hard fallback if ListModels itself fails
+  resolvedGeminiModel = 'gemini-1.5-flash';
+  return resolvedGeminiModel;
+}
+
+/**
  * Uses Gemini Vision API to extract movie/TV titles from an image buffer.
  * Sends the image as base64 inline data — no WASM, no binaries, no timeouts.
  */
@@ -45,9 +117,10 @@ async function ocrWithGemini(imageBuffer: Buffer, mimeType: string): Promise<str
     throw new HttpError(500, 'Gemini API key is not configured. Set GEMINI_API_KEY in your environment.');
   }
 
+  const model = await resolveGeminiModel(apiKey);
   const base64 = imageBuffer.toString('base64');
-  const model = config.geminiModel;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
 
   const body = {
     contents: [
