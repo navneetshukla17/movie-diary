@@ -46,7 +46,7 @@ async function ocrWithGemini(imageBuffer: Buffer, mimeType: string): Promise<str
   }
 
   const base64 = imageBuffer.toString('base64');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
   const body = {
     contents: [
@@ -79,8 +79,8 @@ async function ocrWithGemini(imageBuffer: Buffer, mimeType: string): Promise<str
 
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
-    console.error('Gemini Vision API error:', res.status, errText);
-    throw new HttpError(502, `Gemini Vision API returned ${res.status}`);
+    console.error(`Gemini Vision API error ${res.status}:`, errText);
+    throw new HttpError(502, `Gemini Vision API returned ${res.status}: ${errText.slice(0, 200)}`);
   }
 
   const data = (await res.json()) as {
