@@ -9,4 +9,5 @@ export const config = {
   tmdbApiKey: process.env.TMDB_API_KEY ?? '',
   omdbApiKey: process.env.OMDB_API_KEY ?? '',
   geminiApiKey: process.env.GEMINI_API_KEY ?? '',
+  geminiModel: process.env.GEMINI_MODEL ?? 'gemini-2.5-flash-preview-05-20',
 };
