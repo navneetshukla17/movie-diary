@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { api, type Movie, type MetadataResult } from '../api/client';
+import { api, type Movie, type MetadataResult, type TvSeasonSelection } from '../api/client';
 import { StarRating } from './StarRating';
 import { DatePicker } from './DatePicker';
 import { MovieSearchOverlay } from './MovieSearchOverlay';
@@ -21,11 +21,13 @@ export function EditMovieModal({ movie, mode, onClose, onSaved, onError }: Props
   const [plannedDate, setPlannedDate] = useState(movie.plannedDate ? movie.plannedDate.slice(0, 10) : '');
   const [personalRating, setPersonalRating] = useState<number | null>(movie.personalRating);
   const [review, setReview] = useState(movie.review ?? '');
+  const [episodeProgress, setEpisodeProgress] = useState(movie.episodeProgress ?? '');
   const [watchStatus, setWatchStatus] = useState(movie.watchStatus);
   const [busy, setBusy] = useState(false);
-  const [selected, setSelected] = useState<MetadataResult | null>(null);
+  const [selected, setSelected] = useState<MetadataResult | TvSeasonSelection | null>(null);
   const [showSearchOverlay, setShowSearchOverlay] = useState(false);
 
+  const isTv = movie.mediaType === 'tv' || selected?.mediaType === 'tv';
   const currentPoster = selected?.posterUrl || movie.posterUrl;
 
   const setDateOffset = (setter: (d: string) => void, offsetDays: number) => {
@@ -45,8 +47,9 @@ export function EditMovieModal({ movie, mode, onClose, onSaved, onError }: Props
         review: review.trim() || null,
         watchStatus,
         metadata: selected,
+        episodeProgress: isTv ? (episodeProgress.trim() || null) : null,
       });
-      onSaved('Movie updated successfully!');
+      onSaved(`${isTv ? 'TV Season' : 'Movie'} updated successfully!`);
       onClose();
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Could not save changes');
@@ -65,7 +68,7 @@ export function EditMovieModal({ movie, mode, onClose, onSaved, onError }: Props
 
           {/* Header row */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <h2 style={{ margin: 0 }}>Edit Movie</h2>
+            <h2 style={{ margin: 0 }}>{isTv ? 'Edit TV Season' : 'Edit Movie'}</h2>
             <button
               onClick={onClose}
               aria-label="Close"
@@ -75,7 +78,7 @@ export function EditMovieModal({ movie, mode, onClose, onSaved, onError }: Props
             </button>
           </div>
 
-          {/* Movie poster — top center, big preview */}
+          {/* Poster — top center */}
           {currentPoster && (
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
               <img
@@ -94,7 +97,7 @@ export function EditMovieModal({ movie, mode, onClose, onSaved, onError }: Props
           )}
 
           {/* Search / Change Title Trigger Box */}
-          <label>Movie Title & Metadata</label>
+          <label>{isTv ? 'Show Title & Season' : 'Movie Title & Metadata'}</label>
           <div
             onClick={() => setShowSearchOverlay(true)}
             style={{
@@ -140,6 +143,24 @@ export function EditMovieModal({ movie, mode, onClose, onSaved, onError }: Props
               <span style={{ color: 'var(--green)', fontSize: 12, fontWeight: 700 }}>
                 ✓ Selected: {selected.title} ({selected.year ?? ''})
               </span>
+            </div>
+          )}
+
+          {/* Episode Progress (TV Only) */}
+          {isTv && (
+            <div style={{ marginBottom: 14 }}>
+              <label htmlFor="edit-episode-progress" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                📺 Episode reached
+                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>(optional, e.g. "Ep. 7")</span>
+              </label>
+              <input
+                id="edit-episode-progress"
+                type="text"
+                value={episodeProgress}
+                onChange={(e) => setEpisodeProgress(e.target.value)}
+                placeholder="e.g. Ep. 7 or S2E4"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+              />
             </div>
           )}
 
@@ -203,7 +224,7 @@ export function EditMovieModal({ movie, mode, onClose, onSaved, onError }: Props
       {/* Dedicated full-screen search overlay */}
       {showSearchOverlay && (
         <MovieSearchOverlay
-          initialQuery={title}
+          initialQuery={movie.showTitle ?? title}
           onSelect={(m) => {
             setSelected(m);
             setTitle(m.title);

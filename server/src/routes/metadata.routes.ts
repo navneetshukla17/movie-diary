@@ -5,8 +5,72 @@ import { requireAuth } from '../middleware/auth.js';
 import { asyncHandler, HttpError } from '../utils/http.js';
 import { toMovieJson } from '../utils/serializers.js';
 import { fetchMetadataForTitle, searchMetadata } from '../services/metadata.service.js';
+import { config } from '../config.js';
 
 const router = Router();
+
+// GET /api/metadata/tv-seasons?tmdbId=1234
+// Fetches season list for a TV show from TMDB
+router.get(
+  '/metadata/tv-seasons',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const tmdbId = typeof req.query.tmdbId === 'string' ? req.query.tmdbId.trim() : '';
+    if (!tmdbId) throw new HttpError(400, 'tmdbId query param is required');
+
+    if (!config.tmdbApiKey) {
+      // Fallback: return generic season list up to 20 seasons
+      const seasons = Array.from({ length: 10 }, (_, i) => ({
+        seasonNumber: i + 1,
+        name: `Season ${i + 1}`,
+        episodeCount: null,
+        airDate: null,
+        posterUrl: null,
+      }));
+      return res.json({ seasons });
+    }
+
+    const url = new URL(`https://api.themoviedb.org/3/tv/${tmdbId}`);
+    url.searchParams.set('api_key', config.tmdbApiKey);
+    url.searchParams.set('language', 'en-US');
+
+    const response = await fetch(url.toString(), { signal: AbortSignal.timeout(5000) });
+    if (!response.ok) {
+      // Graceful fallback on TMDB error
+      const seasons = Array.from({ length: 5 }, (_, i) => ({
+        seasonNumber: i + 1,
+        name: `Season ${i + 1}`,
+        episodeCount: null,
+        airDate: null,
+        posterUrl: null,
+      }));
+      return res.json({ seasons });
+    }
+
+    const data = (await response.json()) as {
+      seasons?: Array<{
+        season_number: number;
+        name: string;
+        episode_count: number;
+        air_date: string | null;
+        poster_path: string | null;
+      }>;
+    };
+
+    const seasons = (data.seasons ?? [])
+      .filter((s) => s.season_number > 0) // exclude "Specials" (season 0)
+      .map((s) => ({
+        seasonNumber: s.season_number,
+        name: s.name || `Season ${s.season_number}`,
+        episodeCount: s.episode_count ?? null,
+        airDate: s.air_date ?? null,
+        posterUrl: s.poster_path ? `https://image.tmdb.org/t/p/w300${s.poster_path}` : null,
+      }));
+
+    res.json({ seasons });
+  }),
+);
+
 
 router.get(
   '/metadata/search',

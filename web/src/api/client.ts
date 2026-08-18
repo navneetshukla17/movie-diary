@@ -17,6 +17,13 @@ export interface Movie {
   providerRatings: Record<string, number> | null;
   metadataProvider: 'TMDB' | 'OMDB' | 'IMPORT' | 'MANUAL' | null;
   imported: boolean;
+  // TV show fields
+  mediaType: 'movie' | 'tv' | null;
+  seasonNumber: number | null;
+  episodeProgress: string | null;
+  showTitle: string | null;
+  showPosterUrl: string | null;
+  tmdbId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,6 +38,23 @@ export interface MetadataResult {
   overview?: string | null;
   providerRatings: Record<string, number> | null;
   provider: 'TMDB' | 'OMDB' | 'IMPORT';
+}
+
+export interface TvSeason {
+  seasonNumber: number;
+  name: string;
+  episodeCount: number | null;
+  airDate: string | null;
+  posterUrl: string | null;
+}
+
+// Extended metadata for TV show seasons — passed through the search overlay
+export interface TvSeasonSelection extends MetadataResult {
+  seasonNumber: number;
+  seasonName: string;
+  showTitle: string;
+  showPosterUrl: string | null;
+  tmdbId: string;
 }
 
 const TOKEN_KEY = 'movie_list_token';
@@ -104,6 +128,13 @@ export const api = {
       review?: string | null;
       watchStatus: string;
       metadata?: MetadataResult | null;
+      // TV-specific
+      mediaType?: 'movie' | 'tv' | null;
+      seasonNumber?: number | null;
+      episodeProgress?: string | null;
+      showTitle?: string | null;
+      showPosterUrl?: string | null;
+      tmdbId?: string | null;
     },
   ) =>
     request<{ movie: Movie }>(`/lists/${mode}/movies`, {
@@ -121,6 +152,7 @@ export const api = {
       review: string | null;
       watchStatus: string;
       metadata?: MetadataResult | null;
+      episodeProgress?: string | null;
     }>,
   ) =>
     request<{ movie: Movie }>(`/lists/${mode}/movies/${id}`, {
@@ -136,6 +168,8 @@ export const api = {
     }),
   searchMetadata: (query: string) =>
     request<{ results: MetadataResult[] }>(`/metadata/search?query=${encodeURIComponent(query)}`),
+  getTvSeasons: (tmdbId: string) =>
+    request<{ seasons: TvSeason[] }>(`/metadata/tv-seasons?tmdbId=${encodeURIComponent(tmdbId)}`),
   fetchMetadata: (id: string) =>
     request<{ movie: Movie }>(`/movies/${id}/metadata`, { method: 'POST' }),
   fetchBulkMetadata: (ids: string[]) =>

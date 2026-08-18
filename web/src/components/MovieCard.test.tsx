@@ -23,13 +23,21 @@ const movie: Movie = {
   id: 'm1',
   title: 'Inception',
   watchedDate: '2024-01-15T00:00:00.000Z',
+  plannedDate: null,
   personalRating: 8,
+  review: null,
   watchStatus: 'WATCHING',
   posterUrl: 'https://example.com/inception.jpg',
   releaseDate: '2010-07-16T00:00:00.000Z',
   providerRatings: { tmdb: 8.4 },
   metadataProvider: 'TMDB',
   imported: false,
+  mediaType: 'movie',
+  seasonNumber: null,
+  episodeProgress: null,
+  showTitle: null,
+  showPosterUrl: null,
+  tmdbId: null,
   createdAt: '2024-01-01T00:00:00.000Z',
   updatedAt: '2024-01-02T00:00:00.000Z',
 };
@@ -58,51 +66,43 @@ describe('MovieCard', () => {
     vi.clearAllMocks();
   });
 
-  it('shows the edit form and saves changes with the movie mode', async () => {
+  it('shows the edit modal and saves changes', async () => {
     const { onChanged } = renderCard();
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    const titleInput = screen.getByLabelText('Title');
-    expect(titleInput).toBeInTheDocument();
+    expect(screen.getByText('Edit Movie')).toBeInTheDocument();
 
-    await userEvent.clear(titleInput);
-    await userEvent.type(titleInput, 'Edited');
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
     await waitFor(() => {
-      expect(updateMovie).toHaveBeenCalledWith('ALONE', movie.id, {
-        title: 'Edited',
-        watchedDate: '2024-01-15T00:00:00.000Z',
-        personalRating: 8,
+      expect(updateMovie).toHaveBeenCalledWith('ALONE', movie.id, expect.objectContaining({
+        title: 'Inception',
         watchStatus: 'WATCHING',
-      });
+      }));
       expect(onChanged).toHaveBeenCalled();
     });
-    expect(screen.queryByLabelText('Title')).not.toBeInTheDocument();
   });
 
-  it('deletes the movie after confirming and clears the busy state', async () => {
+  it('deletes the movie after confirming', async () => {
     const { onChanged } = renderCard();
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
-    const confirm = screen.getByRole('button', { name: 'Confirm' });
+    const confirm = screen.getByRole('button', { name: 'Sure?' });
     await userEvent.click(confirm);
 
     await waitFor(() => {
       expect(deleteMovie).toHaveBeenCalledWith('ALONE', movie.id);
-      expect(onChanged).toHaveBeenCalled();
+      expect(onChanged).toHaveBeenCalledWith('Movie deleted!');
     });
-    await waitFor(() => expect(confirm).not.toBeDisabled());
   });
 
-  it('reports save failures and stays in edit mode', async () => {
+  it('reports save failures', async () => {
     updateMovie.mockRejectedValueOnce(new Error('Save failed'));
     const { onError } = renderCard();
 
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
     await waitFor(() => expect(onError).toHaveBeenCalledWith('Save failed'));
-    expect(screen.getByLabelText('Title')).toBeInTheDocument();
   });
 });

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/AuthContext';
 import { api, type Movie } from '../api/client';
 import { MovieCard } from '../components/MovieCard';
+import { TvShowCard } from '../components/TvShowCard';
 import { SearchBar } from '../components/SearchBar';
 import { AddMovieModal } from '../components/AddMovieModal';
 import { ImportModal } from '../components/ImportModal';
@@ -15,6 +16,12 @@ type Mode = 'ALONE' | 'US';
 
 interface Entry {
   movie: Movie;
+  source: Mode;
+}
+
+interface TvGroup {
+  showTitle: string;
+  seasons: Movie[];
   source: Mode;
 }
 
@@ -30,6 +37,7 @@ export function HomePage() {
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'WATCHING' | 'FINISHED' | 'PLANNED'>('ALL');
+  const [mediaTab, setMediaTab] = useState<'ALL' | 'MOVIES' | 'TV'>('ALL');
   const [showMenu, setShowMenu] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -41,7 +49,7 @@ export function HomePage() {
     active: false,
     type: 'first_movie',
   });
-  
+
   const touchStartX = useRef<number | null>(null);
 
   function handleTouchStart(e: React.TouchEvent) {
@@ -88,11 +96,14 @@ export function HomePage() {
       ...movies.map((movie) => ({ movie, source: mode })),
       ...(hasSearch ? otherMovies.map((movie) => ({ movie, source: otherMode })) : []),
     ];
-    
+
     if (q) {
-      all = all.filter(({ movie }) => movie.title.toLowerCase().includes(q));
+      all = all.filter(({ movie }) =>
+        movie.title.toLowerCase().includes(q) ||
+        (movie.showTitle && movie.showTitle.toLowerCase().includes(q))
+      );
     }
-    
+
     // Sort from latest to oldest:
     // 1. Primary: watchedDate or plannedDate or createdAt timestamp descending
     // 2. Secondary: createdAt timestamp descending as tiebreaker
@@ -118,17 +129,17 @@ export function HomePage() {
   function showError(message: string) {
     setNotice({ kind: 'error', text: message });
     window.setTimeout(() => {
-      setNotice(prev => (prev?.kind === 'error' && prev.text === message) ? null : prev);
+      setNotice((prev) => (prev?.kind === 'error' && prev.text === message ? null : prev));
     }, 5000);
   }
 
   function handleMovieAdded() {
-    const isFirstMovie = movies.length === 0;
-    if (isFirstMovie) {
+    const isFirst = movies.length === 0;
+    if (isFirst) {
       setCelebration({ active: true, type: 'first_movie' });
-      flash('First movie added to your diary! 🎬✨');
+      flash('First entry added to your diary! 🎬✨');
     } else {
-      flash('Movie added to your list!');
+      flash('Added to your diary!');
     }
   }
 
@@ -146,45 +157,6 @@ export function HomePage() {
       showError('Could not export the PDF. Try again.');
     }
   }
-
-  const renderList = (title: string, list: Entry[], color: string) => {
-    if (list.length === 0) return null;
-    return (
-      <section style={{ marginTop: '4px' }}>
-        <div style={{ borderBottom: '2px dashed var(--muted)', paddingBottom: '4px', marginBottom: '12px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-           <h2 style={{ color, margin: 0 }}>{title}</h2>
-           <span style={{ color: 'var(--muted)', fontSize: '15px', fontWeight: 'bold' }}>{list.length}</span>
-        </div>
-        <div className="grid" style={{ paddingTop: 0 }}>
-          {list.map(({ movie, source }) => (
-            <MovieCard
-              key={movie.id}
-              movie={movie}
-              mode={source}
-              highlighted={highlighted.has(movie.id)}
-              onChanged={(msg) => {
-                queryClient.invalidateQueries({ queryKey: ['movies'] });
-                flash(msg);
-              }}
-              onError={showError}
-              isSelecting={isSelecting}
-              isSelected={selectedIds.has(movie.id)}
-              onLongPress={() => {
-                setIsSelecting(true);
-                setSelectedIds(new Set([movie.id]));
-              }}
-              onToggleSelect={() => {
-                const next = new Set(selectedIds);
-                if (next.has(movie.id)) next.delete(movie.id);
-                else next.add(movie.id);
-                setSelectedIds(next);
-              }}
-            />
-          ))}
-        </div>
-      </section>
-    );
-  };
 
   const settingsRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -210,18 +182,64 @@ export function HomePage() {
     };
   }, [showSettings, showMenu]);
 
-  // Status counts for filters
-  const watching = entries.filter(e => e.movie.watchStatus === 'WATCHING');
-  const finished = entries.filter(e => e.movie.watchStatus === 'FINISHED');
-  const planned = entries.filter(e => e.movie.watchStatus === 'PLANNED');
+  // Split into Movies and TV shows
+  const movieEntries = useMemo(() => entries.filter((e) => e.movie.mediaType !== 'tv'), [entries]);
+  const tvEntries = useMemo(() => entries.filter((e) => e.movie.mediaType === 'tv'), [entries]);
 
-  const activeCategoriesCount = [watching.length > 0, finished.length > 0, planned.length > 0].filter(Boolean).length;
+  // Group TV shows by showTitle
+  const tvGroups = useMemo<TvGroup[]>(() => {
+    const groupsMap = new Map<string, { showTitle: string; seasons: Movie[]; source: Mode }>();
+    for (const entry of tvEntries) {
+      const key = (entry.movie.showTitle || entry.movie.title).trim();
+      const existing = groupsMap.get(key);
+      if (existing) {
+        existing.seasons.push(entry.movie);
+      } else {
+        groupsMap.set(key, {
+          showTitle: entry.movie.showTitle || entry.movie.title,
+          seasons: [entry.movie],
+          source: entry.source,
+        });
+      }
+    }
+    return Array.from(groupsMap.values());
+  }, [tvEntries]);
+
+  // Filtered lists according to watchStatus
+  const filteredMovieEntries = useMemo(() => {
+    if (filter === 'ALL') return movieEntries;
+    return movieEntries.filter((e) => e.movie.watchStatus === filter);
+  }, [movieEntries, filter]);
+
+  const filteredTvGroups = useMemo(() => {
+    if (filter === 'ALL') return tvGroups;
+    return tvGroups
+      .map((g) => ({
+        ...g,
+        seasons: g.seasons.filter((s) => s.watchStatus === filter),
+      }))
+      .filter((g) => g.seasons.length > 0);
+  }, [tvGroups, filter]);
+
+  // Status counts for filters
+  const watchingCount = useMemo(() => entries.filter((e) => e.movie.watchStatus === 'WATCHING').length, [entries]);
+  const finishedCount = useMemo(() => entries.filter((e) => e.movie.watchStatus === 'FINISHED').length, [entries]);
+  const plannedCount = useMemo(() => entries.filter((e) => e.movie.watchStatus === 'PLANNED').length, [entries]);
+
+  const activeCategoriesCount = [watchingCount > 0, finishedCount > 0, plannedCount > 0].filter(Boolean).length;
 
   useEffect(() => {
-    if (filter === 'WATCHING' && watching.length === 0) setFilter('ALL');
-    if (filter === 'FINISHED' && finished.length === 0) setFilter('ALL');
-    if (filter === 'PLANNED' && planned.length === 0) setFilter('ALL');
-  }, [filter, watching.length, finished.length, planned.length]);
+    if (filter === 'WATCHING' && watchingCount === 0) setFilter('ALL');
+    if (filter === 'FINISHED' && finishedCount === 0) setFilter('ALL');
+    if (filter === 'PLANNED' && plannedCount === 0) setFilter('ALL');
+  }, [filter, watchingCount, finishedCount, plannedCount]);
+
+  const totalVisibleItems =
+    (mediaTab === 'TV' ? 0 : filteredMovieEntries.length) +
+    (mediaTab === 'MOVIES' ? 0 : filteredTvGroups.reduce((acc, g) => acc + g.seasons.length, 0));
+
+  const showMoviesSection = (mediaTab === 'ALL' || mediaTab === 'MOVIES') && filteredMovieEntries.length > 0;
+  const showTvSection = (mediaTab === 'ALL' || mediaTab === 'TV') && filteredTvGroups.length > 0;
 
   return (
     <div className="page" style={{ paddingBottom: '80px' }}>
@@ -230,17 +248,17 @@ export function HomePage() {
           <User size={24} />
         </button>
         <div className={`logo-container ${celebration.active ? 'marquee-neon-glowing' : ''}`} style={{ flex: 1, display: 'flex', justifyContent: 'center', transform: 'translateY(-15px)' }}>
-          <img src="/home-logo.png" alt="Movie Diary" style={{ 
-            width: '100%', 
-            height: 'auto' 
+          <img src="/home-logo.png" alt="Movie Diary" style={{
+            width: '100%',
+            height: 'auto',
           }} />
         </div>
         <div ref={settingsRef} style={{ position: 'relative', zIndex: showSettings ? 110 : 'auto' }}>
-          <button 
+          <button
             onClick={() => {
               setShowMenu(false);
               setShowSettings(!showSettings);
-            }} 
+            }}
             aria-label="Settings"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', padding: 0, borderRadius: '16px', background: showSettings ? 'var(--pink)' : 'transparent', border: showSettings ? '2px solid var(--pink)' : '2px solid var(--muted)', color: showSettings ? '#1a1033' : 'var(--text)' }}
           >
@@ -248,11 +266,11 @@ export function HomePage() {
           </button>
           {showSettings && (
             <div style={{
-              position: 'absolute', right: 0, top: '100%', marginTop: '8px', 
-              background: 'var(--bg-2)', border: '2px solid var(--muted)', 
+              position: 'absolute', right: 0, top: '100%', marginTop: '8px',
+              background: 'var(--bg-2)', border: '2px solid var(--muted)',
               borderRadius: '8px', padding: '12px', zIndex: 120,
               display: 'flex', flexDirection: 'column', gap: '12px',
-              minWidth: '240px', boxShadow: 'var(--shadow)'
+              minWidth: '240px', boxShadow: 'var(--shadow)',
             }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <label style={{ margin: 0, color: 'var(--cyan)', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -268,11 +286,11 @@ export function HomePage() {
         </div>
       </header>
 
-      {/* Sticky Search & Menu Row (Filter icon removed) */}
-      <div className="search-row" style={{ 
-        position: 'sticky', 
-        top: '-1px', 
-        zIndex: showMenu ? 120 : 90, 
+      {/* Sticky Search & Menu Row */}
+      <div className="search-row" style={{
+        position: 'sticky',
+        top: '-1px',
+        zIndex: showMenu ? 120 : 90,
         paddingTop: '16px',
         paddingBottom: '8px',
         paddingLeft: '16px',
@@ -281,19 +299,19 @@ export function HomePage() {
         gap: '11px',
         background: isScrolled ? 'rgba(26, 16, 51, 0.95)' : 'transparent',
         backdropFilter: isScrolled ? 'blur(8px)' : 'none',
-        transition: 'background 0.2s ease, backdrop-filter 0.2s ease'
+        transition: 'background 0.2s ease, backdrop-filter 0.2s ease',
       }}>
         <div style={{ flex: 1, marginTop: '3px' }}>
           <SearchBar value={search} onChange={setSearch} />
         </div>
         <div style={{ display: isScrolled ? 'none' : 'flex', gap: '12px' }}>
           <div ref={menuRef} style={{ position: 'relative', zIndex: showMenu ? 130 : 'auto' }}>
-            <button 
+            <button
               onClick={() => {
                 setShowSettings(false);
                 setShowMenu(!showMenu);
-              }} 
-              aria-label="Menu" 
+              }}
+              aria-label="Menu"
               className={isEmpty ? 'empty-cta-pulse' : ''}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', padding: 0, borderRadius: '16px', background: showMenu ? 'var(--pink)' : 'transparent', color: showMenu ? '#1a1033' : 'var(--text)', border: showMenu ? '2px solid var(--pink)' : '2px solid var(--muted)' }}
             >
@@ -301,36 +319,36 @@ export function HomePage() {
             </button>
             {showMenu && (
               <div style={{
-                position: 'absolute', right: 0, top: '100%', marginTop: '8px', 
-                background: 'var(--bg-2)', border: '2px solid var(--muted)', 
+                position: 'absolute', right: 0, top: '100%', marginTop: '8px',
+                background: 'var(--bg-2)', border: '2px solid var(--muted)',
                 borderRadius: '8px', padding: '12px', zIndex: 140,
                 display: 'flex', flexDirection: 'column', gap: '8px',
-                minWidth: '160px', boxShadow: 'var(--shadow)'
+                minWidth: '160px', boxShadow: 'var(--shadow)',
               }}>
-                <button 
-                  onClick={() => { 
-                    setShowMenu(false); 
-                    setShowImport(true); 
-                  }} 
+                <button
+                  onClick={() => {
+                    setShowMenu(false);
+                    setShowImport(true);
+                  }}
                   style={{ width: '100%', textAlign: 'left' }}
                 >
                   Import 📥
                 </button>
-                <button 
-                  onClick={() => { 
-                    setShowMenu(false); 
-                    downloadPdf(); 
-                  }} 
+                <button
+                  onClick={() => {
+                    setShowMenu(false);
+                    downloadPdf();
+                  }}
                   style={{ width: '100%', textAlign: 'left' }}
                 >
                   Export PDF 📄
                 </button>
-                <button 
-                  className="danger" 
+                <button
+                  className="danger"
                   onClick={() => {
                     setShowMenu(false);
                     logout();
-                  }} 
+                  }}
                   style={{ width: '100%' }}
                 >
                   Logout
@@ -341,13 +359,46 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* Always-visible Filter Options Bar */}
-      {/* Filter Options Bar — only shown if multiple status categories exist and only shows categories with >0 items */}
+      {/* Media Type Category Filter (Movies / TV Shows) */}
+      {entries.length > 0 && tvEntries.length > 0 && movieEntries.length > 0 && (
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          margin: '10px 0 2px',
+          background: 'rgba(0,0,0,0.2)',
+          padding: '4px',
+          borderRadius: '10px',
+        }}>
+          <button
+            className={mediaTab === 'ALL' ? 'primary' : ''}
+            onClick={() => setMediaTab('ALL')}
+            style={{ flex: 1, fontSize: '13px', padding: '6px 10px' }}
+          >
+            All Media ({entries.length})
+          </button>
+          <button
+            className={mediaTab === 'MOVIES' ? 'primary' : ''}
+            onClick={() => setMediaTab('MOVIES')}
+            style={{ flex: 1, fontSize: '13px', padding: '6px 10px' }}
+          >
+            🎬 Movies ({movieEntries.length})
+          </button>
+          <button
+            className={mediaTab === 'TV' ? 'primary' : ''}
+            onClick={() => setMediaTab('TV')}
+            style={{ flex: 1, fontSize: '13px', padding: '6px 10px' }}
+          >
+            📺 TV Shows ({tvGroups.length})
+          </button>
+        </div>
+      )}
+
+      {/* Status Filter Options Bar */}
       {entries.length > 0 && activeCategoriesCount > 1 && (
         <div style={{
           display: 'flex',
           gap: '8px',
-          margin: '12px 0 6px',
+          margin: '8px 0 6px',
           overflowX: 'auto',
           paddingBottom: '4px',
           scrollbarWidth: 'none',
@@ -359,40 +410,40 @@ export function HomePage() {
           >
             All ({entries.length})
           </button>
-          {watching.length > 0 && (
+          {watchingCount > 0 && (
             <button
               className={filter === 'WATCHING' ? 'primary' : ''}
               onClick={() => setFilter('WATCHING')}
               style={{ fontSize: '13px', padding: '6px 14px', flexShrink: 0 }}
             >
-              Watching ({watching.length})
+              Watching ({watchingCount})
             </button>
           )}
-          {finished.length > 0 && (
+          {finishedCount > 0 && (
             <button
               className={filter === 'FINISHED' ? 'primary' : ''}
               onClick={() => setFilter('FINISHED')}
               style={{ fontSize: '13px', padding: '6px 14px', flexShrink: 0 }}
             >
-              Finished ({finished.length})
+              Finished ({finishedCount})
             </button>
           )}
-          {planned.length > 0 && (
+          {plannedCount > 0 && (
             <button
               className={filter === 'PLANNED' ? 'primary' : ''}
               onClick={() => setFilter('PLANNED')}
               style={{ fontSize: '13px', padding: '6px 14px', flexShrink: 0 }}
             >
-              Planned ({planned.length})
+              Planned ({plannedCount})
             </button>
           )}
         </div>
       )}
 
-      { (notice || (!query.isLoading && !otherQuery.isLoading && entries.length === 0)) && (
+      {(notice || (!query.isLoading && !otherQuery.isLoading && entries.length === 0)) && (
         <div className="notice-area">
           {notice && (
-            <div 
+            <div
               className={`notice ${notice.kind}`}
               onClick={() => setNotice(null)}
               onTouchStart={handleTouchStart}
@@ -408,17 +459,119 @@ export function HomePage() {
         </div>
       )}
 
-      {/* Movies List */}
+      {/* Main Content Area */}
       {entries.length > 0 && (
-        <main>
-          {(filter === 'ALL' || filter === 'WATCHING') && renderList('Watching', watching, 'var(--yellow)')}
-          {(filter === 'ALL' || filter === 'FINISHED') && renderList('Finished', finished, 'var(--green)')}
-          {(filter === 'ALL' || filter === 'PLANNED') && renderList('Planned', planned, 'var(--cyan)')}
+        <main style={{ marginTop: '12px' }}>
+          {/* TV Shows Section */}
+          {showTvSection && (
+            <section style={{ marginBottom: '24px' }}>
+              <div style={{
+                borderBottom: '2px dashed var(--cyan)',
+                paddingBottom: '4px',
+                marginBottom: '14px',
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'space-between',
+              }}>
+                <h2 style={{ color: 'var(--cyan)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  📺 TV Shows &amp; Web Series
+                </h2>
+                <span style={{ color: 'var(--muted)', fontSize: '14px', fontWeight: 'bold' }}>
+                  {filteredTvGroups.length} show{filteredTvGroups.length === 1 ? '' : 's'}
+                </span>
+              </div>
+
+              <div className="grid" style={{ paddingTop: 0 }}>
+                {filteredTvGroups.map((group) => (
+                  <TvShowCard
+                    key={group.showTitle}
+                    showTitle={group.showTitle}
+                    seasons={group.seasons}
+                    mode={group.source}
+                    highlightedIds={highlighted}
+                    onChanged={(msg) => {
+                      queryClient.invalidateQueries({ queryKey: ['movies'] });
+                      flash(msg);
+                    }}
+                    onError={showError}
+                    isSelecting={isSelecting}
+                    selectedIds={selectedIds}
+                    onToggleSelect={(id) => {
+                      const next = new Set(selectedIds);
+                      if (next.has(id)) next.delete(id);
+                      else next.add(id);
+                      setSelectedIds(next);
+                    }}
+                    onLongPress={(id) => {
+                      setIsSelecting(true);
+                      setSelectedIds(new Set([id]));
+                    }}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Movies Section */}
+          {showMoviesSection && (
+            <section>
+              <div style={{
+                borderBottom: '2px dashed var(--yellow)',
+                paddingBottom: '4px',
+                marginBottom: '14px',
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'space-between',
+              }}>
+                <h2 style={{ color: 'var(--yellow)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  🎬 Movies
+                </h2>
+                <span style={{ color: 'var(--muted)', fontSize: '14px', fontWeight: 'bold' }}>
+                  {filteredMovieEntries.length}
+                </span>
+              </div>
+
+              <div className="grid" style={{ paddingTop: 0 }}>
+                {filteredMovieEntries.map(({ movie, source }) => (
+                  <MovieCard
+                    key={movie.id}
+                    movie={movie}
+                    mode={source}
+                    highlighted={highlighted.has(movie.id)}
+                    onChanged={(msg) => {
+                      queryClient.invalidateQueries({ queryKey: ['movies'] });
+                      flash(msg);
+                    }}
+                    onError={showError}
+                    isSelecting={isSelecting}
+                    isSelected={selectedIds.has(movie.id)}
+                    onLongPress={() => {
+                      setIsSelecting(true);
+                      setSelectedIds(new Set([movie.id]));
+                    }}
+                    onToggleSelect={() => {
+                      const next = new Set(selectedIds);
+                      if (next.has(movie.id)) next.delete(movie.id);
+                      else next.add(movie.id);
+                      setSelectedIds(next);
+                    }}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {totalVisibleItems === 0 && (
+            <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--muted)' }}>
+              <p style={{ fontSize: 16 }}>No items matching the selected filters.</p>
+            </div>
+          )}
         </main>
       )}
 
+      {/* Add Button */}
       {!isSelecting && (
-        <button 
+        <button
           className={`primary ${isEmpty ? 'empty-cta-pulse' : ''}`}
           onClick={() => setShowAdd(true)}
           style={{
@@ -434,13 +587,14 @@ export function HomePage() {
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            color: '#070000'
+            color: '#070000',
           }}
         >
-          <span style={{ fontSize: '24px', lineHeight: '20px' }}>+</span> Add Movie
+          <span style={{ fontSize: '24px', lineHeight: '20px' }}>+</span> Add to Diary
         </button>
       )}
 
+      {/* Multi-Select Toolbar */}
       {isSelecting && (
         <div style={{
           position: 'fixed',
@@ -454,17 +608,17 @@ export function HomePage() {
           display: 'flex',
           flexDirection: 'column',
           gap: '12px',
-          boxShadow: '0 -4px 10px rgba(0,0,0,0.5)'
+          boxShadow: '0 -4px 10px rgba(0,0,0,0.5)',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ color: 'var(--cyan)', fontWeight: 'bold' }}>
-              {selectedIds.size} movie{selectedIds.size === 1 ? '' : 's'} selected
+              {selectedIds.size} item{selectedIds.size === 1 ? '' : 's'} selected
             </span>
-            <button 
-              className="mini-btn" 
+            <button
+              className="mini-btn"
               onClick={() => {
                 if (selectedIds.size === entries.length) setSelectedIds(new Set());
-                else setSelectedIds(new Set(entries.map(e => e.movie.id)));
+                else setSelectedIds(new Set(entries.map((e) => e.movie.id)));
               }}
             >
               {selectedIds.size === entries.length ? 'Deselect All' : 'Select All'}
@@ -472,8 +626,8 @@ export function HomePage() {
           </div>
 
           <div style={{ display: 'flex', gap: '12px' }}>
-            <button 
-              style={{ flex: 1 }} 
+            <button
+              style={{ flex: 1 }}
               onClick={() => {
                 setIsSelecting(false);
                 setSelectedIds(new Set());
@@ -482,8 +636,8 @@ export function HomePage() {
             >
               Cancel
             </button>
-            <button 
-              className="danger" 
+            <button
+              className="danger"
               style={{ flex: 1 }}
               disabled={selectedIds.size === 0 || isDeleting}
               onClick={() => setConfirmBulkDelete(true)}
@@ -494,19 +648,19 @@ export function HomePage() {
         </div>
       )}
 
-      {/* Confirmation modal for bulk delete */}
+      {/* Confirmation Modal for Bulk Delete */}
       {confirmBulkDelete && (
         <div className="modal-backdrop" onClick={() => setConfirmBulkDelete(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
             <h3 style={{ color: 'var(--yellow)', marginBottom: '8px' }}>
-              Delete {selectedIds.size} movie{selectedIds.size === 1 ? '' : 's'}?
+              Delete {selectedIds.size} item{selectedIds.size === 1 ? '' : 's'}?
             </h3>
             <p style={{ color: 'var(--muted)', marginBottom: '20px', fontSize: '14px' }}>
-              Are you sure you want to delete the selected movies? This cannot be undone.
+              Are you sure you want to delete the selected items? This cannot be undone.
             </p>
             <div className="modal-actions" style={{ display: 'flex', gap: '8px' }}>
-              <button 
-                style={{ flex: 1 }} 
+              <button
+                style={{ flex: 1 }}
                 onClick={() => {
                   setConfirmBulkDelete(false);
                   setIsSelecting(false);
@@ -515,8 +669,8 @@ export function HomePage() {
               >
                 No
               </button>
-              <button 
-                className="danger" 
+              <button
+                className="danger"
                 style={{ flex: 1 }}
                 onClick={async () => {
                   setIsDeleting(true);
@@ -526,9 +680,9 @@ export function HomePage() {
                       await api.deleteMovie(mode, id);
                     }
                     queryClient.invalidateQueries({ queryKey: ['movies'] });
-                    flash(`Deleted ${idsToDelete.length} movie${idsToDelete.length === 1 ? '' : 's'}!`);
+                    flash(`Deleted ${idsToDelete.length} item${idsToDelete.length === 1 ? '' : 's'}!`);
                   } catch (err) {
-                    showError(err instanceof Error ? err.message : 'Could not delete movies');
+                    showError(err instanceof Error ? err.message : 'Could not delete items');
                   } finally {
                     setIsDeleting(false);
                     setIsSelecting(false);
@@ -561,7 +715,7 @@ export function HomePage() {
             boxShadow: '0 4px 0 rgba(0,0,0,0.5)',
             background: 'var(--card)',
             color: 'var(--text)',
-            padding: 0
+            padding: 0,
           }}
           aria-label="Scroll to top"
         >

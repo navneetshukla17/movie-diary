@@ -14,6 +14,12 @@ export function toMovieJson(m: Movie) {
     providerRatings: m.providerRatings,
     metadataProvider: m.metadataProvider,
     imported: m.imported,
+    mediaType: m.mediaType,
+    seasonNumber: m.seasonNumber,
+    episodeProgress: m.episodeProgress,
+    showTitle: m.showTitle,
+    showPosterUrl: m.showPosterUrl,
+    tmdbId: m.tmdbId,
     createdAt: m.createdAt,
     updatedAt: m.updatedAt,
   };

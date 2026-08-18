@@ -24,8 +24,8 @@ describe('LoginPage', () => {
         <LoginPage />
       </MemoryRouter>,
     );
-    await userEvent.type(screen.getByLabelText(/email/i), 'a@b.com');
-    await userEvent.type(screen.getByLabelText(/password/i), 'password123');
+    await userEvent.type(screen.getByLabelText(/^email$/i), 'a@b.com');
+    await userEvent.type(screen.getByLabelText(/^password$/i), 'password123');
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
     expect(loginMock).toHaveBeenCalledWith('a@b.com', 'password123');
   });
@@ -37,8 +37,8 @@ describe('LoginPage', () => {
         <LoginPage />
       </MemoryRouter>,
     );
-    await userEvent.type(screen.getByLabelText(/email/i), 'a@b.com');
-    await userEvent.type(screen.getByLabelText(/password/i), 'wrong');
+    await userEvent.type(screen.getByLabelText(/^email$/i), 'a@b.com');
+    await userEvent.type(screen.getByLabelText(/^password$/i), 'wrong');
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
     expect(await screen.findByText('Invalid email or password')).toBeInTheDocument();
   });

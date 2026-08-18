@@ -19,7 +19,7 @@ const importedMovie = { id: 'm1', title: 'Inception' };
 describe('ImportModal', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('uploads a file, shows the real-data prompt, and enriches on yes', async () => {
+  it('uploads a file and enriches metadata automatically', async () => {
     importFileMock.mockResolvedValue({ movies: [importedMovie], skippedLines: [] });
     fetchBulkMetadataMock.mockResolvedValue({ movies: [importedMovie] });
     const onImported = vi.fn();
@@ -31,13 +31,11 @@ describe('ImportModal', () => {
     const file = new File(['Inception'], 'movies.txt', { type: 'text/plain' });
     await userEvent.upload(screen.getByLabelText(/choose a file/i), file);
     await userEvent.click(screen.getByRole('button', { name: /^import$/i }));
-    expect(await screen.findByText(/import movies' real data/i)).toBeInTheDocument();
-    expect(onImported).toHaveBeenCalledWith([importedMovie]);
-    await userEvent.click(screen.getByRole('button', { name: /yes, import real data/i }));
+    await waitFor(() => expect(onImported).toHaveBeenCalledWith([importedMovie]));
     expect(fetchBulkMetadataMock).toHaveBeenCalledWith(['m1']);
   });
 
-  it('shows an error message when no titles are found', async () => {
+  it('shows an error message when file upload fails', async () => {
     importFileMock.mockRejectedValue(new Error('No movie titles could be read from this file'));
     const onError = vi.fn();
     render(

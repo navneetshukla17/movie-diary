@@ -63,6 +63,12 @@ model Movie {
   plannedDate      DateTime?
   metadataProvider MetadataProvider?
   imported         Boolean          @default(false)
+  mediaType        String?          // "movie" | "tv" — null treated as "movie"
+  seasonNumber     Int?             // null for movies, 1/2/3... for TV seasons
+  episodeProgress  String?          // e.g. "Ep. 7" — TV-specific, null for movies
+  showTitle        String?          // Base show name e.g. "FROM" — for grouping
+  showPosterUrl    String?          // Show-level poster for group header
+  tmdbId           String?          // TMDB numeric ID for the show (for season fetching)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   list             List             @relation(fields: [listId], references: [id], onDelete: Cascade)

@@ -27,7 +27,8 @@ router.post(
   asyncHandler(async (req, res) => {
     const mode = parseMode(req.params.mode!);
     const list = await getUserList(req.user!.id, mode);
-    const { title, watchedDate, personalRating, watchStatus, metadata, review, plannedDate } = req.body ?? {};
+    const { title, watchedDate, personalRating, watchStatus, metadata, review, plannedDate,
+            mediaType, seasonNumber, episodeProgress, showTitle, showPosterUrl, tmdbId } = req.body ?? {};
     if (typeof title !== 'string' || !title.trim()) throw new HttpError(400, 'Title is required');
     const cleanTitle = title.trim();
     const existing = await prisma.movie.findUnique({
@@ -60,6 +61,12 @@ router.post(
         review: review ?? null,
         plannedDate: plannedDate ? parseDate(plannedDate) : null,
         imported: false,
+        mediaType: typeof mediaType === 'string' ? mediaType : null,
+        seasonNumber: typeof seasonNumber === 'number' ? seasonNumber : null,
+        episodeProgress: typeof episodeProgress === 'string' ? episodeProgress : null,
+        showTitle: typeof showTitle === 'string' ? showTitle : null,
+        showPosterUrl: typeof showPosterUrl === 'string' ? showPosterUrl : null,
+        tmdbId: typeof tmdbId === 'string' ? tmdbId : null,
       },
     });
     res.status(201).json({ movie: toMovieJson(movie) });
@@ -74,7 +81,8 @@ router.patch(
     const list = await getUserList(req.user!.id, mode);
     const movie = await prisma.movie.findFirst({ where: { id: req.params.id, listId: list.id } });
     if (!movie) throw new HttpError(404, 'Movie not found');
-    const { title, watchedDate, personalRating, watchStatus, review, plannedDate, metadata } = req.body ?? {};
+    const { title, watchedDate, personalRating, watchStatus, review, plannedDate, metadata,
+            episodeProgress } = req.body ?? {};
     const data: Prisma.MovieUncheckedUpdateInput = {};
     if (title !== undefined) {
       if (typeof title !== 'string' || !title.trim()) throw new HttpError(400, 'Title cannot be empty');
@@ -103,6 +111,9 @@ router.patch(
       data.review = review;
     }
     if (plannedDate !== undefined) data.plannedDate = plannedDate === null ? null : parseDate(plannedDate);
+    if (episodeProgress !== undefined) {
+      data.episodeProgress = episodeProgress === null ? null : String(episodeProgress);
+    }
     if (metadata) {
       if (metadata.provider != null && !PROVIDERS.includes(metadata.provider)) throw new HttpError(400, 'Invalid metadata provider');
       if (metadata.providerRatings != null && (typeof metadata.providerRatings !== 'object' || metadata.providerRatings === null || Array.isArray(metadata.providerRatings))) {

@@ -964,3 +964,108 @@ label { display: block; margin: 8px 0 4px; font-size: 12px; color: var(--muted);
   .add-btn-desktop { display: none !important; }
 }
 
+/* ── Season Picker Styles ────────────────────────────────── */
+.season-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+@media (max-width: 480px) {
+  .season-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+}
+
+.season-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 2px solid var(--muted);
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.season-card:hover, .season-card:focus {
+  border-color: var(--cyan);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(103, 232, 249, 0.25);
+}
+
+.season-card:active {
+  transform: translateY(0);
+}
+
+.season-card-poster {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  background: #130b28;
+}
+
+.season-card-poster-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.season-card-label {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-2);
+}
+
+.season-card-number {
+  font-family: var(--font-brand);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cyan);
+}
+
+.season-card-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.season-card-eps {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.search-card.search-card-tv {
+  border-color: rgba(255, 106, 193, 0.4);
+}
+.search-card.search-card-tv:hover {
+  border-color: var(--pink);
+  box-shadow: 0 4px 16px rgba(255, 106, 193, 0.25);
+}
+.search-card-select-tv {
+  color: var(--pink) !important;
+}
+
+/* ── TV Show Group Card Styles ──────────────────────────── */
+.tv-show-group:hover {
+  border-color: var(--cyan) !important;
+}
+
+.season-sub-card {
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.season-sub-card:hover {
+  border-color: var(--cyan) !important;
+}
+
