@@ -8,4 +8,5 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET || 'movie-diary-production-secret-2026',
   tmdbApiKey: process.env.TMDB_API_KEY ?? '',
   omdbApiKey: process.env.OMDB_API_KEY ?? '',
+  geminiApiKey: process.env.GEMINI_API_KEY ?? '',
 };
