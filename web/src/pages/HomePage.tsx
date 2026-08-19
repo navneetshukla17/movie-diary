@@ -41,10 +41,6 @@ export function HomePage() {
   const [showMenu, setShowMenu] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [celebration, setCelebration] = useState<{ active: boolean; type: 'first_movie' | 'import'; count?: number }>({
     active: false,
     type: 'first_movie',
@@ -494,18 +490,6 @@ export function HomePage() {
                       flash(msg);
                     }}
                     onError={showError}
-                    isSelecting={isSelecting}
-                    selectedIds={selectedIds}
-                    onToggleSelect={(id) => {
-                      const next = new Set(selectedIds);
-                      if (next.has(id)) next.delete(id);
-                      else next.add(id);
-                      setSelectedIds(next);
-                    }}
-                    onLongPress={(id) => {
-                      setIsSelecting(true);
-                      setSelectedIds(new Set([id]));
-                    }}
                   />
                 ))}
               </div>
@@ -543,18 +527,6 @@ export function HomePage() {
                       flash(msg);
                     }}
                     onError={showError}
-                    isSelecting={isSelecting}
-                    isSelected={selectedIds.has(movie.id)}
-                    onLongPress={() => {
-                      setIsSelecting(true);
-                      setSelectedIds(new Set([movie.id]));
-                    }}
-                    onToggleSelect={() => {
-                      const next = new Set(selectedIds);
-                      if (next.has(movie.id)) next.delete(movie.id);
-                      else next.add(movie.id);
-                      setSelectedIds(next);
-                    }}
                   />
                 ))}
               </div>
@@ -570,133 +542,27 @@ export function HomePage() {
       )}
 
       {/* Add Button */}
-      {!isSelecting && (
-        <button
-          className={`primary ${isEmpty ? 'empty-cta-pulse' : ''}`}
-          onClick={() => setShowAdd(true)}
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 40,
-            borderRadius: '30px',
-            padding: '14px 28px',
-            fontSize: '18px',
-            boxShadow: '0 6px 0 rgb(7, 0, 0)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: '#070000',
-          }}
-        >
-          <span style={{ fontSize: '24px', lineHeight: '20px' }}>+</span> Add to Diary
-        </button>
-      )}
-
-      {/* Multi-Select Toolbar */}
-      {isSelecting && (
-        <div style={{
+      <button
+        className={`primary ${isEmpty ? 'empty-cta-pulse' : ''}`}
+        onClick={() => setShowAdd(true)}
+        style={{
           position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          background: 'var(--bg-2)',
-          borderTop: '2px solid var(--muted)',
-          padding: '16px',
-          zIndex: 100,
+          bottom: '24px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 40,
+          borderRadius: '30px',
+          padding: '14px 28px',
+          fontSize: '18px',
+          boxShadow: '0 6px 0 rgb(7, 0, 0)',
           display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-          boxShadow: '0 -4px 10px rgba(0,0,0,0.5)',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: 'var(--cyan)', fontWeight: 'bold' }}>
-              {selectedIds.size} item{selectedIds.size === 1 ? '' : 's'} selected
-            </span>
-            <button
-              className="mini-btn"
-              onClick={() => {
-                if (selectedIds.size === entries.length) setSelectedIds(new Set());
-                else setSelectedIds(new Set(entries.map((e) => e.movie.id)));
-              }}
-            >
-              {selectedIds.size === entries.length ? 'Deselect All' : 'Select All'}
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button
-              style={{ flex: 1 }}
-              onClick={() => {
-                setIsSelecting(false);
-                setSelectedIds(new Set());
-                setConfirmBulkDelete(false);
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              className="danger"
-              style={{ flex: 1 }}
-              disabled={selectedIds.size === 0 || isDeleting}
-              onClick={() => setConfirmBulkDelete(true)}
-            >
-              {isDeleting ? 'Deleting...' : `Delete (${selectedIds.size})`}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Confirmation Modal for Bulk Delete */}
-      {confirmBulkDelete && (
-        <div className="modal-backdrop" onClick={() => setConfirmBulkDelete(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
-            <h3 style={{ color: 'var(--yellow)', marginBottom: '8px' }}>
-              Delete {selectedIds.size} item{selectedIds.size === 1 ? '' : 's'}?
-            </h3>
-            <p style={{ color: 'var(--muted)', marginBottom: '20px', fontSize: '14px' }}>
-              Are you sure you want to delete the selected items? This cannot be undone.
-            </p>
-            <div className="modal-actions" style={{ display: 'flex', gap: '8px' }}>
-              <button
-                style={{ flex: 1 }}
-                onClick={() => {
-                  setConfirmBulkDelete(false);
-                  setIsSelecting(false);
-                  setSelectedIds(new Set());
-                }}
-              >
-                No
-              </button>
-              <button
-                className="danger"
-                style={{ flex: 1 }}
-                onClick={async () => {
-                  setIsDeleting(true);
-                  try {
-                    const idsToDelete = Array.from(selectedIds);
-                    for (const id of idsToDelete) {
-                      await api.deleteMovie(mode, id);
-                    }
-                    queryClient.invalidateQueries({ queryKey: ['movies'] });
-                    flash(`Deleted ${idsToDelete.length} item${idsToDelete.length === 1 ? '' : 's'}!`);
-                  } catch (err) {
-                    showError(err instanceof Error ? err.message : 'Could not delete items');
-                  } finally {
-                    setIsDeleting(false);
-                    setIsSelecting(false);
-                    setSelectedIds(new Set());
-                    setConfirmBulkDelete(false);
-                  }
-                }}
-              >
-                Yes, Delete All
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          alignItems: 'center',
+          gap: '8px',
+          color: '#070000',
+        }}
+      >
+        <span style={{ fontSize: '24px', lineHeight: '20px' }}>+</span> Add to Diary
+      </button>
 
       {showScrollTop && (
         <button

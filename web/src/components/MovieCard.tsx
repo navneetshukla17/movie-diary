@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { api, type Movie } from '../api/client';
 import { Star } from 'lucide-react';
 import { EditMovieModal } from './EditMovieModal';
@@ -9,31 +9,18 @@ interface Props {
   highlighted: boolean;
   onChanged: (message: string) => void;
   onError: (message: string) => void;
-  isSelecting?: boolean;
-  isSelected?: boolean;
-  onToggleSelect?: () => void;
-  onLongPress?: () => void;
 }
 
 export function MovieCard({
-  movie, mode, highlighted, onChanged, onError,
-  isSelecting, isSelected, onToggleSelect, onLongPress,
+  movie,
+  mode,
+  highlighted,
+  onChanged,
+  onError,
 }: Props) {
   const [showEdit, setShowEdit] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
-
-  const longPressTimer = useRef<number>();
-
-  function handleTouchStart() {
-    if (window.innerWidth <= 768 && !isSelecting) {
-      longPressTimer.current = window.setTimeout(() => onLongPress?.(), 500);
-    }
-  }
-
-  function handleTouchEnd() {
-    clearTimeout(longPressTimer.current);
-  }
 
   async function remove() {
     setBusy(true);
@@ -71,32 +58,19 @@ export function MovieCard({
   return (
     <>
       <article
-        className={`card ${highlighted ? 'card-highlight' : ''} ${isSelected ? 'selected' : ''}`}
+        className={`card ${highlighted ? 'card-highlight' : ''}`}
         style={{
           position: 'relative',
-          cursor: isSelecting ? 'pointer' : 'default',
-          opacity: isSelecting ? (isSelected ? 1 : 0.7) : 1,
           borderRadius: 10,
         }}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        onClick={isSelecting ? () => onToggleSelect?.() : undefined}
       >
         {/* Poster */}
         <div className="card-poster" style={{ position: 'relative' }}>
-          {isSelecting && (
-            <div style={{
-              position: 'absolute', top: 8, left: 8, zIndex: 10,
-              width: 24, height: 24, borderRadius: 4,
-              border: '2px solid white', background: isSelected ? 'var(--cyan)' : 'rgba(0,0,0,0.5)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              {isSelected && <span style={{ color: '#1a1033', fontWeight: 'bold' }}>✓</span>}
-            </div>
+          {movie.posterUrl ? (
+            <img src={movie.posterUrl} alt={movie.title} />
+          ) : (
+            <div className="poster-placeholder">{movie.title.slice(0, 2).toUpperCase()}</div>
           )}
-          {movie.posterUrl
-            ? <img src={movie.posterUrl} alt={movie.title} />
-            : <div className="poster-placeholder">{movie.title.slice(0, 2).toUpperCase()}</div>}
           {titleOnly && (
             <div style={{ position: 'absolute', bottom: 8, left: 8, right: 8 }}>
               <button className="mini-btn" disabled={busy} onClick={fetchMetadata} style={{ width: '100%' }}>
@@ -107,7 +81,7 @@ export function MovieCard({
         </div>
 
         {/* Card body */}
-        <div className="card-body" style={{ pointerEvents: isSelecting ? 'none' : 'auto' }}>
+        <div className="card-body">
           <h3>{movie.title}</h3>
           <p className="meta">
             {movie.releaseDate ? movie.releaseDate.slice(0, 4) : '—'}

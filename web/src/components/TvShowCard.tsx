@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { api, type Movie } from '../api/client';
 import { Star, Tv, Layers, X, Edit, Trash2 } from 'lucide-react';
 import { EditMovieModal } from './EditMovieModal';
@@ -10,10 +10,6 @@ interface Props {
   highlightedIds: Set<string>;
   onChanged: (message: string) => void;
   onError: (message: string) => void;
-  isSelecting?: boolean;
-  selectedIds?: Set<string>;
-  onToggleSelect?: (id: string) => void;
-  onLongPress?: (id: string) => void;
 }
 
 export function TvShowCard({
@@ -23,17 +19,11 @@ export function TvShowCard({
   highlightedIds,
   onChanged,
   onError,
-  isSelecting,
-  selectedIds,
-  onToggleSelect,
-  onLongPress,
 }: Props) {
   const [showAllSeasonsModal, setShowAllSeasonsModal] = useState(false);
   const [editingMovie, setEditingMovie] = useState<Movie | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const longPressTimer = useRef<number>();
 
   // Sort seasons: S1, S2, S3...
   const sortedSeasons = [...seasons].sort((a, b) => {
@@ -52,7 +42,6 @@ export function TvShowCard({
     sortedSeasons[0];
 
   const posterUrl = activeSeason?.posterUrl || activeSeason?.showPosterUrl || sortedSeasons[0]?.showPosterUrl || sortedSeasons[0]?.posterUrl;
-  const isSelected = activeSeason ? selectedIds?.has(activeSeason.id) : false;
   const isHighlighted = activeSeason ? highlightedIds.has(activeSeason.id) : false;
   const ratings = activeSeason?.providerRatings as Record<string, number> | null;
 
@@ -75,43 +64,17 @@ export function TvShowCard({
     }
   }
 
-  function handleTouchStart() {
-    if (window.innerWidth <= 768 && !isSelecting && activeSeason) {
-      longPressTimer.current = window.setTimeout(() => onLongPress?.(activeSeason.id), 500);
-    }
-  }
-
-  function handleTouchEnd() {
-    clearTimeout(longPressTimer.current);
-  }
-
   return (
     <>
       <article
-        className={`card ${isHighlighted ? 'card-highlight' : ''} ${isSelected ? 'selected' : ''}`}
+        className={`card ${isHighlighted ? 'card-highlight' : ''}`}
         style={{
           position: 'relative',
-          cursor: isSelecting ? 'pointer' : 'default',
-          opacity: isSelecting ? (isSelected ? 1 : 0.7) : 1,
           borderRadius: 10,
         }}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        onClick={isSelecting && activeSeason ? () => onToggleSelect?.(activeSeason.id) : undefined}
       >
         {/* Poster */}
         <div className="card-poster" style={{ position: 'relative' }}>
-          {isSelecting && (
-            <div style={{
-              position: 'absolute', top: 8, left: 8, zIndex: 10,
-              width: 24, height: 24, borderRadius: 4,
-              border: '2px solid white', background: isSelected ? 'var(--cyan)' : 'rgba(0,0,0,0.5)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              {isSelected && <span style={{ color: '#1a1033', fontWeight: 'bold' }}>✓</span>}
-            </div>
-          )}
-
           {/* TV Badge on top-right */}
           <div style={{
             position: 'absolute',
@@ -142,7 +105,7 @@ export function TvShowCard({
         </div>
 
         {/* Card body */}
-        <div className="card-body" style={{ pointerEvents: isSelecting ? 'none' : 'auto' }}>
+        <div className="card-body">
           <h3 style={{ marginBottom: 2 }}>{showTitle}</h3>
 
           {/* Active Season label */}
@@ -272,7 +235,7 @@ export function TvShowCard({
                   }}
                   style={{ flex: 1 }}
                 >
-                  Sure?
+                  Confirm
                 </button>
                 <button
                   onClick={(e) => {
