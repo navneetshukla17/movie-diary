@@ -233,9 +233,35 @@ export function HomePage() {
   return (
     <div className="page">
       <header className="topbar">
-        {/* Left: Diary Profile Switcher (Profile Icon + Desktop Pills) */}
+        {/* Left: Mobile Settings Button / Desktop Mode Switcher Pills */}
         <div className="header-group-left">
-          <div ref={profileRef} style={{ position: 'relative' }}>
+          {/* Mobile-only Settings button on the left */}
+          <button
+            onClick={() => navigate('/profile')}
+            aria-label="Settings"
+            className="header-icon-btn mobile-header-btn"
+            title="Settings"
+          >
+            <SettingsIcon size={22} />
+          </button>
+
+          {/* Desktop inline mode switcher pills */}
+          <div className="desktop-mode-toggle mode-toggle">
+            <button className={mode === 'ALONE' ? 'active' : ''} onClick={() => setMode('ALONE')}>{person1}</button>
+            <button className={mode === 'PARTNER' ? 'active' : ''} onClick={() => setMode('PARTNER')}>{person2}</button>
+            <button className={mode === 'US' ? 'active' : ''} onClick={() => setMode('US')}>US</button>
+          </div>
+        </div>
+
+        {/* Center: Movie Diary marquee logo */}
+        <div className={`logo-container ${celebration.active ? 'marquee-neon-glowing' : ''}`}>
+          <img src="/home-logo.png" alt="Movie Diary" className="header-logo-img" />
+        </div>
+
+        {/* Right: Mobile Profile Switcher / Desktop Right Spacer */}
+        <div className="header-group-right">
+          {/* Mobile-only Profile button on the right with popover */}
+          <div ref={profileRef} className="mobile-header-btn" style={{ position: 'relative' }}>
             <button
               aria-label="Diary Profile"
               onClick={() => setShowProfileMenu(!showProfileMenu)}
@@ -247,7 +273,7 @@ export function HomePage() {
             {/* Mobile Profile Switcher Popover */}
             {showProfileMenu && (
               <div style={{
-                position: 'absolute', left: 0, top: '100%', marginTop: '8px',
+                position: 'absolute', right: 0, top: '100%', marginTop: '8px',
                 background: 'var(--bg-2)', border: '2px solid var(--muted)',
                 borderRadius: '12px', padding: '12px', zIndex: 140,
                 display: 'flex', flexDirection: 'column', gap: '8px',
@@ -264,30 +290,6 @@ export function HomePage() {
               </div>
             )}
           </div>
-
-          {/* Desktop inline mode switcher pills */}
-          <div className="desktop-mode-toggle mode-toggle">
-            <button className={mode === 'ALONE' ? 'active' : ''} onClick={() => setMode('ALONE')}>{person1}</button>
-            <button className={mode === 'PARTNER' ? 'active' : ''} onClick={() => setMode('PARTNER')}>{person2}</button>
-            <button className={mode === 'US' ? 'active' : ''} onClick={() => setMode('US')}>US</button>
-          </div>
-        </div>
-
-        {/* Center: Movie Diary marquee logo */}
-        <div className={`logo-container ${celebration.active ? 'marquee-neon-glowing' : ''}`}>
-          <img src="/home-logo.png" alt="Movie Diary" className="header-logo-img" />
-        </div>
-
-        {/* Right: Settings Icon (Navigates to Profile/Settings) */}
-        <div className="header-group-right">
-          <button
-            onClick={() => navigate('/profile')}
-            aria-label="Settings"
-            className="header-icon-btn"
-            title="Settings"
-          >
-            <SettingsIcon size={22} />
-          </button>
         </div>
       </header>
 
@@ -307,6 +309,9 @@ export function HomePage() {
           </button>
           <button className="desktop-action-btn" onClick={downloadPdf}>
             Export PDF 📄
+          </button>
+          <button className="desktop-action-btn" onClick={() => navigate('/profile')} title="Settings & Profiles">
+            Settings ⚙️
           </button>
         </div>
 
