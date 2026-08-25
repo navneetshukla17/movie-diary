@@ -186,79 +186,81 @@ export function TvShowCard({
             </p>
           )}
 
-          {/* See all seasons button */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowAllSeasonsModal(true);
-            }}
-            style={{
-              width: '100%',
-              marginTop: 6,
-              padding: '6px 8px',
-              fontSize: 11,
-              fontWeight: 700,
-              background: 'rgba(103, 232, 249, 0.1)',
-              border: '1px solid var(--cyan)',
-              color: 'var(--cyan)',
-              borderRadius: 6,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 5,
-            }}
-          >
-            <Layers size={13} />
-            <span>All Seasons ({sortedSeasons.length}) ▾</span>
-          </button>
-
-          {/* Edit / Delete action buttons for the active season */}
-          <div className="card-actions">
+          {/* Card footer / bottom controls */}
+          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 6 }}>
+            {/* See all seasons button */}
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                if (activeSeason) setEditingMovie(activeSeason);
+                setShowAllSeasonsModal(true);
               }}
-              style={{ flex: 1 }}
+              style={{
+                width: '100%',
+                padding: '6px 8px',
+                fontSize: 11,
+                fontWeight: 700,
+                background: 'rgba(103, 232, 249, 0.1)',
+                border: '1px solid var(--cyan)',
+                color: 'var(--cyan)',
+                borderRadius: 6,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 5,
+              }}
             >
-              Edit
+              <Layers size={13} />
+              <span>All Seasons ({sortedSeasons.length}) ▾</span>
             </button>
-            {confirmDeleteId === activeSeason?.id ? (
-              <>
-                <button
-                  className="danger"
-                  disabled={busy}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (activeSeason) remove(activeSeason.id);
-                  }}
-                  style={{ flex: 1 }}
-                >
-                  Confirm
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setConfirmDeleteId(null);
-                  }}
-                  style={{ flex: 1 }}
-                >
-                  No
-                </button>
-              </>
-            ) : (
+
+            {/* Edit / Delete action buttons for the active season */}
+            <div className="card-actions" style={{ marginTop: 0, paddingTop: 0 }}>
               <button
-                className="danger"
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (activeSeason) setConfirmDeleteId(activeSeason.id);
+                  if (activeSeason) setEditingMovie(activeSeason);
                 }}
                 style={{ flex: 1 }}
               >
-                Delete
+                Edit
               </button>
-            )}
+              {confirmDeleteId === activeSeason?.id ? (
+                <>
+                  <button
+                    className="danger"
+                    disabled={busy}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (activeSeason) remove(activeSeason.id);
+                    }}
+                    style={{ flex: 1 }}
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmDeleteId(null);
+                    }}
+                    style={{ flex: 1 }}
+                  >
+                    No
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="danger"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (activeSeason) setConfirmDeleteId(activeSeason.id);
+                  }}
+                  style={{ flex: 1 }}
+                >
+                  Delete
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </article>
