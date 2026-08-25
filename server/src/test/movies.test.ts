@@ -36,11 +36,21 @@ describe('lists & movies', () => {
     expect(dup.status).toBe(409);
   });
 
-  it('allows the same movie in both lists', async () => {
+  it('allows independent lists across ALONE, PARTNER, and US modes', async () => {
     const { token } = await signupUser();
-    await request(app).post('/api/lists/ALONE/movies').set(auth(token)).send({ title: 'Inception' });
+    const alone = await request(app).post('/api/lists/ALONE/movies').set(auth(token)).send({ title: 'Inception' });
+    const partner = await request(app).post('/api/lists/PARTNER/movies').set(auth(token)).send({ title: 'Inception' });
     const us = await request(app).post('/api/lists/US/movies').set(auth(token)).send({ title: 'Inception' });
+    expect(alone.status).toBe(201);
+    expect(partner.status).toBe(201);
     expect(us.status).toBe(201);
+
+    const aloneList = await request(app).get('/api/lists/ALONE/movies').set(auth(token));
+    const partnerList = await request(app).get('/api/lists/PARTNER/movies').set(auth(token));
+    const usList = await request(app).get('/api/lists/US/movies').set(auth(token));
+    expect(aloneList.body.movies).toHaveLength(1);
+    expect(partnerList.body.movies).toHaveLength(1);
+    expect(usList.body.movies).toHaveLength(1);
   });
 
   it('rejects an out-of-range rating', async () => {

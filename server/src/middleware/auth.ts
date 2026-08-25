@@ -7,7 +7,9 @@ import { prisma } from '../db.js';
 export interface AuthUser {
   id: string;
   email: string;
-  defaultMode: 'ALONE' | 'US';
+  defaultMode: 'ALONE' | 'PARTNER' | 'US';
+  person1Name: string;
+  person2Name: string;
 }
 
 declare global {
@@ -27,22 +29,30 @@ export const requireAuth: RequestHandler = async (req, _res, next) => {
       userId: string;
       email?: string;
       defaultMode?: string;
+      person1Name?: string;
+      person2Name?: string;
     };
 
-    // Fast path: newer tokens embed user fields — no DB round-trip needed
-    if (payload.email && payload.defaultMode) {
+    if (payload.email && payload.defaultMode && payload.person1Name && payload.person2Name) {
       req.user = {
         id: payload.userId,
         email: payload.email,
-        defaultMode: payload.defaultMode as 'ALONE' | 'US',
+        defaultMode: payload.defaultMode as 'ALONE' | 'PARTNER' | 'US',
+        person1Name: payload.person1Name,
+        person2Name: payload.person2Name,
       };
       return next();
     }
 
-    // Slow path (backward compat): old tokens only have userId — fetch from DB once
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
     if (!user) throw new HttpError(401, 'Not authenticated');
-    req.user = { id: user.id, email: user.email, defaultMode: user.defaultMode };
+    req.user = {
+      id: user.id,
+      email: user.email,
+      defaultMode: user.defaultMode,
+      person1Name: user.person1Name,
+      person2Name: user.person2Name,
+    };
     next();
   } catch (err) {
     if (err instanceof HttpError) next(err);

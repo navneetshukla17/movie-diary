@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { type Mode } from '../api/client';
 import { Eye, EyeOff } from 'lucide-react';
 
 export function SignupPage() {
@@ -9,7 +10,7 @@ export function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [mode, setMode] = useState<'ALONE' | 'US'>('ALONE');
+  const [mode, setMode] = useState<Mode>('ALONE');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -44,10 +45,11 @@ export function SignupPage() {
             {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
           </button>
         </div>
-        <label htmlFor="signup-mode">Diary mode ?</label>
-        <select id="signup-mode" value={mode} onChange={(e) => setMode(e.target.value as 'ALONE' | 'US')}>
-          <option value="ALONE">Alone — I watch it solo</option>
-          <option value="US">US — we watch it together</option>
+        <label htmlFor="signup-mode">Starting profile</label>
+        <select id="signup-mode" value={mode} onChange={(e) => setMode(e.target.value as Mode)}>
+          <option value="ALONE">Person 1 (Solo)</option>
+          <option value="PARTNER">Person 2 (Partner Solo)</option>
+          <option value="US">US (Shared)</option>
         </select>
         <button className="primary" disabled={busy}>Sign up</button>
         <p className="alt">Already have an account? <Link to="/login" style={{ whiteSpace: 'nowrap' }}>Sign in</Link></p>

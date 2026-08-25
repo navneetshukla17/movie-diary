@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/AuthContext';
-import { api, type Movie } from '../api/client';
+import { api, type Movie, type Mode } from '../api/client';
 import { MovieCard } from '../components/MovieCard';
 import { TvShowCard } from '../components/TvShowCard';
 import { SearchBar } from '../components/SearchBar';
@@ -11,8 +11,6 @@ import { ImportModal } from '../components/ImportModal';
 import { EmptyState } from '../components/EmptyState';
 import { NeonMarqueeCelebration } from '../components/NeonMarqueeCelebration';
 import { Settings as SettingsIcon, User, MoreVertical, ChevronUp } from 'lucide-react';
-
-type Mode = 'ALONE' | 'US';
 
 interface Entry {
   movie: Movie;
@@ -46,6 +44,10 @@ export function HomePage() {
     type: 'first_movie',
   });
 
+  const person1 = user?.person1Name || 'Me';
+  const person2 = user?.person2Name || 'Partner';
+  const getModeLabel = (m: Mode) => (m === 'ALONE' ? person1 : m === 'PARTNER' ? person2 : 'US');
+
   const touchStartX = useRef<number | null>(null);
 
   function handleTouchStart(e: React.TouchEvent) {
@@ -72,26 +74,17 @@ export function HomePage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const otherMode: Mode = mode === 'ALONE' ? 'US' : 'ALONE';
   const hasSearch = search.trim().length > 0;
 
+  // Query strictly for the active profile mode
   const query = useQuery({ queryKey: ['movies', mode], queryFn: () => api.listMovies(mode) });
-  const otherQuery = useQuery({
-    queryKey: ['movies', otherMode],
-    queryFn: () => api.listMovies(otherMode),
-    enabled: hasSearch,
-  });
-
   const movies = query.data?.movies ?? [];
-  const otherMovies = otherQuery.data?.movies ?? [];
 
   // Movie rankings: Latest watched/added strictly on top (latest to oldest)
+  // Scoped STRICTLY to current profile (no cross-profile search results)
   const entries = useMemo<Entry[]>(() => {
     const q = search.trim().toLowerCase();
-    let all: Entry[] = [
-      ...movies.map((movie) => ({ movie, source: mode })),
-      ...(hasSearch ? otherMovies.map((movie) => ({ movie, source: otherMode })) : []),
-    ];
+    let all: Entry[] = movies.map((movie) => ({ movie, source: mode }));
 
     if (q) {
       all = all.filter(({ movie }) =>
@@ -113,9 +106,9 @@ export function HomePage() {
       const createdB = new Date(b.movie.createdAt).getTime();
       return createdB - createdA;
     });
-  }, [search, movies, otherMovies, mode, otherMode, hasSearch]);
+  }, [search, movies, mode]);
 
-  const isEmpty = !query.isLoading && !otherQuery.isLoading && entries.length === 0 && !hasSearch;
+  const isEmpty = !query.isLoading && entries.length === 0 && !hasSearch;
 
   function flash(message: string) {
     setNotice({ kind: 'success', text: message });
@@ -238,69 +231,80 @@ export function HomePage() {
   const showTvSection = (mediaTab === 'ALL' || mediaTab === 'TV') && filteredTvGroups.length > 0;
 
   return (
-    <div className="page" style={{ paddingBottom: '80px' }}>
-      <header className="topbar" style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '16px 0', marginBottom: '-16px' }}>
-        <button aria-label="Profile" onClick={() => navigate('/profile')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', padding: 0, borderRadius: '50%', background: 'transparent', border: '2px solid var(--muted)', color: 'var(--text)' }}>
-          <User size={24} />
-        </button>
-        <div className={`logo-container ${celebration.active ? 'marquee-neon-glowing' : ''}`} style={{ flex: 1, display: 'flex', justifyContent: 'center', transform: 'translateY(-15px)' }}>
-          <img src="/home-logo.png" alt="Movie Diary" style={{
-            width: '100%',
-            height: 'auto',
-          }} />
-        </div>
-        <div ref={settingsRef} style={{ position: 'relative', zIndex: showSettings ? 110 : 'auto' }}>
-          <button
-            onClick={() => {
-              setShowMenu(false);
-              setShowSettings(!showSettings);
-            }}
-            aria-label="Settings"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', padding: 0, borderRadius: '16px', background: showSettings ? 'var(--pink)' : 'transparent', border: showSettings ? '2px solid var(--pink)' : '2px solid var(--muted)', color: showSettings ? '#1a1033' : 'var(--text)' }}
-          >
-            <SettingsIcon size={24} />
+    <div className="page">
+      <header className="topbar">
+        <div className="header-group-left">
+          <button aria-label="Profile" onClick={() => navigate('/profile')} className="header-icon-btn">
+            <User size={22} />
           </button>
-          {showSettings && (
-            <div style={{
-              position: 'absolute', right: 0, top: '100%', marginTop: '8px',
-              background: 'var(--bg-2)', border: '2px solid var(--muted)',
-              borderRadius: '8px', padding: '12px', zIndex: 120,
-              display: 'flex', flexDirection: 'column', gap: '12px',
-              minWidth: '240px', boxShadow: 'var(--shadow)',
-            }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label style={{ margin: 0, color: 'var(--cyan)', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Diary Mode
-                </label>
-                <div className="mode-toggle" style={{ margin: 0, display: 'flex' }}>
-                  <button style={{ flex: 1 }} className={mode === 'ALONE' ? 'active' : ''} onClick={() => { setMode('ALONE'); setShowSettings(false); }}>Alone</button>
-                  <button style={{ flex: 1 }} className={mode === 'US' ? 'active' : ''} onClick={() => { setMode('US'); setShowSettings(false); }}>US</button>
+          <div className="desktop-mode-toggle mode-toggle">
+            <button className={mode === 'ALONE' ? 'active' : ''} onClick={() => setMode('ALONE')}>{person1}</button>
+            <button className={mode === 'PARTNER' ? 'active' : ''} onClick={() => setMode('PARTNER')}>{person2}</button>
+            <button className={mode === 'US' ? 'active' : ''} onClick={() => setMode('US')}>US</button>
+          </div>
+        </div>
+
+        <div className={`logo-container ${celebration.active ? 'marquee-neon-glowing' : ''}`}>
+          <img src="/home-logo.png" alt="Movie Diary" className="header-logo-img" />
+        </div>
+
+        <div className="header-group-right">
+          <div ref={settingsRef} style={{ position: 'relative', zIndex: showSettings ? 110 : 'auto' }}>
+            <button
+              onClick={() => {
+                setShowMenu(false);
+                setShowSettings(!showSettings);
+              }}
+              aria-label="Settings"
+              className={`header-icon-btn ${showSettings ? 'active' : ''}`}
+            >
+              <SettingsIcon size={22} />
+            </button>
+            {showSettings && (
+              <div style={{
+                position: 'absolute', right: 0, top: '100%', marginTop: '8px',
+                background: 'var(--bg-2)', border: '2px solid var(--muted)',
+                borderRadius: '8px', padding: '12px', zIndex: 120,
+                display: 'flex', flexDirection: 'column', gap: '12px',
+                minWidth: '240px', boxShadow: 'var(--shadow)',
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ margin: 0, color: 'var(--cyan)', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Diary Profile
+                  </label>
+                  <div className="mode-toggle" style={{ margin: 0, display: 'flex' }}>
+                    <button style={{ flex: 1 }} className={mode === 'ALONE' ? 'active' : ''} onClick={() => { setMode('ALONE'); setShowSettings(false); }}>{person1}</button>
+                    <button style={{ flex: 1 }} className={mode === 'PARTNER' ? 'active' : ''} onClick={() => { setMode('PARTNER'); setShowSettings(false); }}>{person2}</button>
+                    <button style={{ flex: 1 }} className={mode === 'US' ? 'active' : ''} onClick={() => { setMode('US'); setShowSettings(false); }}>US</button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </header>
 
-      {/* Sticky Search & Menu Row */}
-      <div className="search-row" style={{
-        position: 'sticky',
-        top: '-1px',
-        zIndex: showMenu ? 120 : 90,
-        paddingTop: '16px',
-        paddingBottom: '8px',
-        paddingLeft: '16px',
-        paddingRight: '16px',
-        margin: '0 -16px 0px -16px',
-        gap: '11px',
-        background: isScrolled ? 'rgba(26, 16, 51, 0.95)' : 'transparent',
-        backdropFilter: isScrolled ? 'blur(8px)' : 'none',
-        transition: 'background 0.2s ease, backdrop-filter 0.2s ease',
-      }}>
-        <div style={{ flex: 1, marginTop: '3px' }}>
+      {/* Sticky Search & Toolbar Row */}
+      <div className={`search-row ${isScrolled ? 'scrolled' : ''}`} style={{ zIndex: showMenu ? 120 : 90 }}>
+        <div className="search-row-input">
           <SearchBar value={search} onChange={setSearch} />
         </div>
-        <div style={{ display: isScrolled ? 'none' : 'flex', gap: '12px' }}>
+
+        {/* Desktop Direct Action Buttons */}
+        <div className="desktop-actions">
+          <button className={`desktop-add-btn primary ${isEmpty ? 'empty-cta-pulse' : ''}`} onClick={() => setShowAdd(true)}>
+            <span style={{ fontSize: '18px', fontWeight: 'bold' }}>+</span> Add to Diary
+          </button>
+          <button className="desktop-action-btn" onClick={() => setShowImport(true)}>
+            Import 📥
+          </button>
+          <button className="desktop-action-btn" onClick={downloadPdf}>
+            Export PDF 📄
+          </button>
+        </div>
+
+        {/* Mobile 3-dot Menu */}
+        <div className="mobile-menu-btn" style={{ display: isScrolled ? 'none' : 'flex', gap: '8px' }}>
           <div ref={menuRef} style={{ position: 'relative', zIndex: showMenu ? 130 : 'auto' }}>
             <button
               onClick={() => {
@@ -308,8 +312,7 @@ export function HomePage() {
                 setShowMenu(!showMenu);
               }}
               aria-label="Menu"
-              className={isEmpty ? 'empty-cta-pulse' : ''}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', padding: 0, borderRadius: '16px', background: showMenu ? 'var(--pink)' : 'transparent', color: showMenu ? '#1a1033' : 'var(--text)', border: showMenu ? '2px solid var(--pink)' : '2px solid var(--muted)' }}
+              className={`header-icon-btn ${showMenu ? 'active' : ''} ${isEmpty ? 'empty-cta-pulse' : ''}`}
             >
               <MoreVertical size={20} />
             </button>
@@ -357,32 +360,22 @@ export function HomePage() {
 
       {/* Media Type Category Filter (Movies / TV Shows) */}
       {entries.length > 0 && tvEntries.length > 0 && movieEntries.length > 0 && (
-        <div style={{
-          display: 'flex',
-          gap: '8px',
-          margin: '10px 0 2px',
-          background: 'rgba(0,0,0,0.2)',
-          padding: '4px',
-          borderRadius: '10px',
-        }}>
+        <div className="media-filter-bar">
           <button
-            className={mediaTab === 'ALL' ? 'primary' : ''}
+            className={`media-filter-btn ${mediaTab === 'ALL' ? 'active' : ''}`}
             onClick={() => setMediaTab('ALL')}
-            style={{ flex: 1, fontSize: '13px', padding: '6px 10px' }}
           >
             All Media ({entries.length})
           </button>
           <button
-            className={mediaTab === 'MOVIES' ? 'primary' : ''}
+            className={`media-filter-btn ${mediaTab === 'MOVIES' ? 'active' : ''}`}
             onClick={() => setMediaTab('MOVIES')}
-            style={{ flex: 1, fontSize: '13px', padding: '6px 10px' }}
           >
             🎬 Movies ({movieEntries.length})
           </button>
           <button
-            className={mediaTab === 'TV' ? 'primary' : ''}
+            className={`media-filter-btn ${mediaTab === 'TV' ? 'active' : ''}`}
             onClick={() => setMediaTab('TV')}
-            style={{ flex: 1, fontSize: '13px', padding: '6px 10px' }}
           >
             📺 TV Shows ({tvGroups.length})
           </button>
@@ -391,44 +384,33 @@ export function HomePage() {
 
       {/* Status Filter Options Bar */}
       {entries.length > 0 && activeCategoriesCount > 1 && (
-        <div style={{
-          display: 'flex',
-          gap: '8px',
-          margin: '8px 0 6px',
-          overflowX: 'auto',
-          paddingBottom: '4px',
-          scrollbarWidth: 'none',
-        }}>
+        <div className="status-filter-bar">
           <button
-            className={filter === 'ALL' ? 'primary' : ''}
+            className={`status-filter-btn ${filter === 'ALL' ? 'primary' : ''}`}
             onClick={() => setFilter('ALL')}
-            style={{ fontSize: '13px', padding: '6px 14px', flexShrink: 0 }}
           >
             All ({entries.length})
           </button>
           {watchingCount > 0 && (
             <button
-              className={filter === 'WATCHING' ? 'primary' : ''}
+              className={`status-filter-btn ${filter === 'WATCHING' ? 'primary' : ''}`}
               onClick={() => setFilter('WATCHING')}
-              style={{ fontSize: '13px', padding: '6px 14px', flexShrink: 0 }}
             >
               Watching ({watchingCount})
             </button>
           )}
           {finishedCount > 0 && (
             <button
-              className={filter === 'FINISHED' ? 'primary' : ''}
+              className={`status-filter-btn ${filter === 'FINISHED' ? 'primary' : ''}`}
               onClick={() => setFilter('FINISHED')}
-              style={{ fontSize: '13px', padding: '6px 14px', flexShrink: 0 }}
             >
               Finished ({finishedCount})
             </button>
           )}
           {plannedCount > 0 && (
             <button
-              className={filter === 'PLANNED' ? 'primary' : ''}
+              className={`status-filter-btn ${filter === 'PLANNED' ? 'primary' : ''}`}
               onClick={() => setFilter('PLANNED')}
-              style={{ fontSize: '13px', padding: '6px 14px', flexShrink: 0 }}
             >
               Planned ({plannedCount})
             </button>
@@ -436,7 +418,7 @@ export function HomePage() {
         </div>
       )}
 
-      {(notice || (!query.isLoading && !otherQuery.isLoading && entries.length === 0)) && (
+      {(notice || (!query.isLoading && entries.length === 0)) && (
         <div className="notice-area">
           {notice && (
             <div
@@ -449,7 +431,7 @@ export function HomePage() {
               {notice.text}
             </div>
           )}
-          {!query.isLoading && !otherQuery.isLoading && entries.length === 0 && (
+          {!query.isLoading && entries.length === 0 && (
             <EmptyState hasSearch={hasSearch} />
           )}
         </div>
@@ -541,59 +523,30 @@ export function HomePage() {
         </main>
       )}
 
-      {/* Add Button */}
+      {/* Floating Add Button */}
       <button
-        className={`primary ${isEmpty ? 'empty-cta-pulse' : ''}`}
+        className={`fab-add-button ${isEmpty ? 'empty-cta-pulse' : ''}`}
         onClick={() => setShowAdd(true)}
-        style={{
-          position: 'fixed',
-          bottom: '24px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 40,
-          borderRadius: '30px',
-          padding: '14px 28px',
-          fontSize: '18px',
-          boxShadow: '0 6px 0 rgb(7, 0, 0)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          color: '#070000',
-        }}
+        aria-label="Add to Diary"
       >
-        <span style={{ fontSize: '24px', lineHeight: '20px' }}>+</span> Add to Diary
+        <span className="plus-icon">+</span> Add to Diary
       </button>
 
       {showScrollTop && (
         <button
+          className="scroll-to-top-btn"
           onClick={scrollToTop}
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '16px',
-            zIndex: 40,
-            borderRadius: '50%',
-            width: '48px',
-            height: '48px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 0 rgba(0,0,0,0.5)',
-            background: 'var(--card)',
-            color: 'var(--text)',
-            padding: 0,
-          }}
           aria-label="Scroll to top"
         >
-          <ChevronUp size={28} />
+          <ChevronUp size={24} />
         </button>
       )}
 
       {showAdd && (
-        <AddMovieModal mode={mode} onClose={() => setShowAdd(false)} onAdded={handleMovieAdded} onError={showError} />
+        <AddMovieModal mode={mode} modeLabel={getModeLabel(mode)} onClose={() => setShowAdd(false)} onAdded={handleMovieAdded} onError={showError} />
       )}
       {showImport && (
-        <ImportModal mode={mode} onClose={() => setShowImport(false)} onImported={handleImported} onError={showError} />
+        <ImportModal mode={mode} modeLabel={getModeLabel(mode)} onClose={() => setShowImport(false)} onImported={handleImported} onError={showError} />
       )}
 
       {/* Neon Marquee Celebration & Warm Star Sparkles */}

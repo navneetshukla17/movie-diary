@@ -1,19 +1,34 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { api } from '../api/client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api, type Mode } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { ChangePasswordModal } from '../components/ChangePasswordModal';
 import { ChevronLeft, LogOut, Trash2 } from 'lucide-react';
 
 export function ProfilePage() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user: authUser, setUser: setAuthUser, logout } = useAuth();
+  const queryClient = useQueryClient();
   
   const { data } = useQuery({
     queryKey: ['me'],
     queryFn: () => api.me(),
   });
+
+  const currentUser = data?.user ?? authUser;
+
+  const [person1Name, setPerson1Name] = useState(currentUser?.person1Name ?? 'Me');
+  const [person2Name, setPerson2Name] = useState(currentUser?.person2Name ?? 'Partner');
+  const [defaultMode, setDefaultMode] = useState<Mode>(currentUser?.defaultMode ?? 'ALONE');
+
+  useEffect(() => {
+    if (currentUser) {
+      setPerson1Name(currentUser.person1Name);
+      setPerson2Name(currentUser.person2Name);
+      setDefaultMode(currentUser.defaultMode);
+    }
+  }, [currentUser]);
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -30,6 +45,22 @@ export function ProfilePage() {
     setTimeout(() => setNotice(null), 5000);
   };
 
+  const updateProfileMutation = useMutation({
+    mutationFn: () => {
+      const p1 = person1Name.trim();
+      const p2 = person2Name.trim();
+      if (!p1) throw new Error('Person 1 name cannot be empty');
+      if (!p2) throw new Error('Person 2 name cannot be empty');
+      return api.updateProfile({ person1Name: p1, person2Name: p2, defaultMode });
+    },
+    onSuccess: (res) => {
+      setAuthUser(res.user);
+      queryClient.setQueryData(['me'], { user: res.user });
+      flash('Profile names updated successfully! ✨');
+    },
+    onError: (err) => showError(err instanceof Error ? err.message : 'Could not update profile'),
+  });
+
   const deleteAccount = useMutation({
     mutationFn: () => {
       if (deleteInput !== 'DELETE') throw new Error("Please type DELETE to confirm");
@@ -42,6 +73,7 @@ export function ProfilePage() {
   });
 
   const isDeleting = deleteAccount.isPending;
+  const isSavingProfile = updateProfileMutation.isPending;
 
   return (
     <div className="page" style={{ padding: '24px 16px', maxWidth: '600px', margin: '0 auto' }}>
@@ -98,47 +130,115 @@ export function ProfilePage() {
         />
       )}
 
-      <header style={{ display: 'flex', alignItems: 'center', marginBottom: '40px' }}>
+      <header style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
         <button 
           aria-label="Back"
           onClick={() => navigate('/')} 
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', padding: 0, borderRadius: '50%', background: 'transparent', border: '2px solid var(--muted)', color: 'var(--text)' }}
+          className="header-icon-btn"
         >
           <ChevronLeft size={24} />
         </button>
       </header>
 
-      <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-        <h1 style={{ color: 'var(--yellow)', marginBottom: '8px' }}>Profile Settings</h1>
-        {data && (
-          <div style={{ fontSize: '18px', color: 'var(--cyan)', wordBreak: 'break-all' }}>
-            {data.user.email}
+      <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+        <h1 style={{ color: 'var(--yellow)', marginBottom: '8px', fontFamily: 'var(--font-brand)' }}>Profile Settings</h1>
+        {currentUser && (
+          <div style={{ fontSize: '16px', color: 'var(--cyan)', wordBreak: 'break-all' }}>
+            {currentUser.email}
           </div>
         )}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <button 
-          className="primary" 
-          onClick={() => setShowPasswordModal(true)}
-          style={{ padding: '16px', fontSize: '16px' }}
+      {/* Diary Profiles Card */}
+      <div style={{
+        background: 'var(--card)',
+        border: '2px solid var(--pink)',
+        borderRadius: '16px',
+        padding: '20px',
+        marginBottom: '24px',
+        boxShadow: 'var(--shadow)',
+      }}>
+        <h2 style={{ color: 'var(--yellow)', margin: '0 0 8px', fontSize: '18px', fontFamily: 'var(--font-brand)' }}>
+          👥 Diary Profiles
+        </h2>
+        <p style={{ color: 'var(--muted)', fontSize: '13px', margin: '0 0 16px', lineHeight: 1.4 }}>
+          Customize the names for your individual lists. You, your partner, and your shared list ("US") will each have separate diaries.
+        </p>
+
+        <div style={{ marginBottom: '14px' }}>
+          <label htmlFor="person1-name" style={{ color: 'var(--cyan)', fontSize: '12px' }}>
+            Person 1 Name (Solo List)
+          </label>
+          <input
+            id="person1-name"
+            type="text"
+            value={person1Name}
+            onChange={(e) => setPerson1Name(e.target.value)}
+            placeholder="e.g. Bob"
+            maxLength={30}
+          />
+        </div>
+
+        <div style={{ marginBottom: '14px' }}>
+          <label htmlFor="person2-name" style={{ color: 'var(--pink)', fontSize: '12px' }}>
+            Person 2 Name (Partner Solo List)
+          </label>
+          <input
+            id="person2-name"
+            type="text"
+            value={person2Name}
+            onChange={(e) => setPerson2Name(e.target.value)}
+            placeholder="e.g. Sheela"
+            maxLength={30}
+          />
+        </div>
+
+        <div style={{ marginBottom: '18px' }}>
+          <label htmlFor="default-mode-select" style={{ fontSize: '12px' }}>
+            Default Starting Profile
+          </label>
+          <select
+            id="default-mode-select"
+            value={defaultMode}
+            onChange={(e) => setDefaultMode(e.target.value as Mode)}
+          >
+            <option value="ALONE">{person1Name || 'Person 1'} (Solo)</option>
+            <option value="PARTNER">{person2Name || 'Person 2'} (Solo)</option>
+            <option value="US">US (Shared)</option>
+          </select>
+        </div>
+
+        <button
+          className="primary"
+          disabled={isSavingProfile || !person1Name.trim() || !person2Name.trim()}
+          onClick={() => updateProfileMutation.mutate()}
+          style={{ width: '100%', padding: '12px', fontSize: '15px' }}
         >
-          Change Password
+          {isSavingProfile ? 'Saving...' : 'Save Profile Names ✨'}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <button 
+          onClick={() => setShowPasswordModal(true)}
+          style={{ padding: '14px', fontSize: '15px' }}
+        >
+          Change Password 🔑
         </button>
         
         <button 
           onClick={logout} 
-          style={{ padding: '16px', fontSize: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+          style={{ padding: '14px', fontSize: '15px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
         >
-          <LogOut size={20} /> Log Out
+          <LogOut size={18} /> Log Out
         </button>
         
         <button 
           className="danger" 
           onClick={() => setShowDeleteConfirm(true)}
-          style={{ padding: '16px', fontSize: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+          style={{ padding: '14px', fontSize: '15px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
         >
-          <Trash2 size={20} /> Delete Account
+          <Trash2 size={18} /> Delete Account
         </button>
       </div>
     </div>

@@ -7,20 +7,26 @@ import { asyncHandler, HttpError } from '../utils/http.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
-const MODES = ['ALONE', 'US'] as const;
+const MODES = ['ALONE', 'PARTNER', 'US'] as const;
 
-function toUserJson(user: { id: string; email: string; defaultMode: string }) {
-  return { id: user.id, email: user.email, defaultMode: user.defaultMode };
+function toUserJson(user: { id: string; email: string; defaultMode: string; person1Name?: string; person2Name?: string }) {
+  return {
+    id: user.id,
+    email: user.email,
+    defaultMode: user.defaultMode,
+    person1Name: user.person1Name ?? 'Me',
+    person2Name: user.person2Name ?? 'Partner',
+  };
 }
 
 router.post(
   '/signup',
   asyncHandler(async (req, res) => {
-    const { email, password, defaultMode } = req.body ?? {};
+    const { email, password, defaultMode, person1Name, person2Name } = req.body ?? {};
     if (typeof email !== 'string' || !email.includes('@')) throw new HttpError(400, 'A valid email is required');
     if (typeof password !== 'string' || password.length < 8) throw new HttpError(400, 'Password must be at least 8 characters');
     if (Buffer.byteLength(password, 'utf8') > 72) throw new HttpError(400, 'Password must be at most 72 characters');
-    if (defaultMode !== undefined && !MODES.includes(defaultMode)) throw new HttpError(400, 'defaultMode must be ALONE or US');
+    if (defaultMode !== undefined && !MODES.includes(defaultMode)) throw new HttpError(400, 'defaultMode must be ALONE, PARTNER, or US');
     const mode = defaultMode ?? 'ALONE';
     const cleanEmail = email.trim().toLowerCase();
     const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
@@ -31,15 +37,22 @@ router.post(
         email: cleanEmail,
         passwordHash,
         defaultMode: mode,
+        person1Name: typeof person1Name === 'string' && person1Name.trim() ? person1Name.trim() : 'Me',
+        person2Name: typeof person2Name === 'string' && person2Name.trim() ? person2Name.trim() : 'Partner',
         lists: {
           create: [
             { mode: 'ALONE' },
+            { mode: 'PARTNER' },
             { mode: 'US' },
           ],
         },
       },
     });
-    const token = jwt.sign({ userId: user.id, email: user.email, defaultMode: user.defaultMode }, config.jwtSecret, { expiresIn: '30d' });
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, defaultMode: user.defaultMode, person1Name: user.person1Name, person2Name: user.person2Name },
+      config.jwtSecret,
+      { expiresIn: '30d' }
+    );
     res.status(201).json({ token, user: toUserJson(user) });
   }),
 );
@@ -51,7 +64,11 @@ router.post(
     if (typeof email !== 'string' || typeof password !== 'string') throw new HttpError(400, 'Email and password are required');
     const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) throw new HttpError(401, 'Invalid email or password');
-    const token = jwt.sign({ userId: user.id, email: user.email, defaultMode: user.defaultMode }, config.jwtSecret, { expiresIn: '30d' });
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, defaultMode: user.defaultMode, person1Name: user.person1Name, person2Name: user.person2Name },
+      config.jwtSecret,
+      { expiresIn: '30d' }
+    );
     res.status(200).json({ token, user: toUserJson(user) });
   }),
 );
@@ -60,7 +77,9 @@ router.get(
   '/me',
   requireAuth,
   asyncHandler(async (req, res) => {
-    res.json({ user: toUserJson(req.user!) });
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!user) throw new HttpError(404, 'User not found');
+    res.json({ user: toUserJson(user) });
   }),
 );
 
@@ -68,10 +87,26 @@ router.patch(
   '/me',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { defaultMode } = req.body ?? {};
-    if (!MODES.includes(defaultMode)) throw new HttpError(400, 'defaultMode must be ALONE or US');
-    const user = await prisma.user.update({ where: { id: req.user!.id }, data: { defaultMode } });
-    const token = jwt.sign({ userId: user.id, email: user.email, defaultMode: user.defaultMode }, config.jwtSecret, { expiresIn: '30d' });
+    const { defaultMode, person1Name, person2Name } = req.body ?? {};
+    const data: { defaultMode?: 'ALONE' | 'PARTNER' | 'US'; person1Name?: string; person2Name?: string } = {};
+    if (defaultMode !== undefined) {
+      if (!MODES.includes(defaultMode)) throw new HttpError(400, 'defaultMode must be ALONE, PARTNER, or US');
+      data.defaultMode = defaultMode;
+    }
+    if (person1Name !== undefined) {
+      if (typeof person1Name !== 'string' || !person1Name.trim()) throw new HttpError(400, 'Person 1 name cannot be empty');
+      data.person1Name = person1Name.trim();
+    }
+    if (person2Name !== undefined) {
+      if (typeof person2Name !== 'string' || !person2Name.trim()) throw new HttpError(400, 'Person 2 name cannot be empty');
+      data.person2Name = person2Name.trim();
+    }
+    const user = await prisma.user.update({ where: { id: req.user!.id }, data });
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, defaultMode: user.defaultMode, person1Name: user.person1Name, person2Name: user.person2Name },
+      config.jwtSecret,
+      { expiresIn: '30d' }
+    );
     res.json({ token, user: toUserJson(user) });
   }),
 );

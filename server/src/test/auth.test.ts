@@ -69,10 +69,19 @@ describe('auth', () => {
     expect(res.status).toBe(400);
   });
 
-  it('updates the default mode', async () => {
+  it('updates the default mode and person profile names', async () => {
     const { token } = await signupUser();
-    const res = await request(app).patch('/api/auth/me').set(auth(token)).send({ defaultMode: 'US' });
+    const res = await request(app)
+      .patch('/api/auth/me')
+      .set(auth(token))
+      .send({ defaultMode: 'PARTNER', person1Name: 'Bob', person2Name: 'Sheela' });
     expect(res.status).toBe(200);
-    expect(res.body.user.defaultMode).toBe('US');
+    expect(res.body.user.defaultMode).toBe('PARTNER');
+    expect(res.body.user.person1Name).toBe('Bob');
+    expect(res.body.user.person2Name).toBe('Sheela');
+
+    const me = await request(app).get('/api/auth/me').set(auth(token));
+    expect(me.body.user.person1Name).toBe('Bob');
+    expect(me.body.user.person2Name).toBe('Sheela');
   });
 });

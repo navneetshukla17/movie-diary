@@ -5,12 +5,13 @@ import { Loader2 } from 'lucide-react';
 
 interface Props {
   mode: string;
+  modeLabel?: string;
   onClose: () => void;
   onImported: (movies: Movie[]) => void;
   onError: (message: string) => void;
 }
 
-export function ImportModal({ mode, onClose, onImported, onError }: Props) {
+export function ImportModal({ mode, modeLabel, onClose, onImported, onError }: Props) {
   const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [watchStatus, setWatchStatus] = useState<'PLANNED' | 'FINISHED'>('FINISHED');
@@ -83,7 +84,7 @@ export function ImportModal({ mode, onClose, onImported, onError }: Props) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2 style={{ marginTop: 0, marginBottom: '8px' }}>Import movie list</h2>
+        <h2 style={{ marginTop: 0, marginBottom: '8px' }}>Import into {modeLabel || (mode === 'US' ? 'US' : 'Solo')} list</h2>
         <p style={{ color: 'var(--muted)', fontSize: '14px', marginTop: 0, marginBottom: '24px' }}>
           Upload a text, PDF, or image file with movie titles.
         </p>

@@ -64,9 +64,12 @@ export async function generateListPdf(userId: string, mode: Mode): Promise<Buffe
     doc.on('error', reject);
   });
 
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const listTitle = mode === 'US' ? 'US List' : (mode === 'ALONE' ? `${user?.person1Name || 'Me'}'s List` : `${user?.person2Name || 'Partner'}'s List`);
+
   doc.rect(0, 0, doc.page.width, doc.page.height).fill(BG);
-  doc.fillColor(YELLOW).font('Helvetica-Bold').fontSize(26).text(`${mode === 'ALONE' ? 'Alone' : 'US'} List`, { align: 'center' });
-  doc.fillColor(MUTED).font('Helvetica').fontSize(11).text(`my movies  ·  generated ${formatDate(new Date())}`, { align: 'center' });
+  doc.fillColor(YELLOW).font('Helvetica-Bold').fontSize(26).text(listTitle, { align: 'center' });
+  doc.fillColor(MUTED).font('Helvetica').fontSize(11).text(`Movie Diary  ·  generated ${formatDate(new Date())}`, { align: 'center' });
   doc.moveDown(0.5);
 
   if (movies.length === 0) {

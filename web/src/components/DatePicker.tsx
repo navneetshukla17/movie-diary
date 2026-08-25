@@ -113,21 +113,28 @@ export function DatePicker({ id, value, onChange }: Props) {
         <Calendar size={18} color={value ? 'var(--cyan)' : 'var(--muted)'} />
       </button>
 
-      {open && rect && createPortal(
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={() => setOpen(false)} />
-          <div style={{
-            position: 'fixed', 
-            ...(window.innerHeight - rect.bottom < 360 && rect.top > window.innerHeight - rect.bottom
-              ? { bottom: window.innerHeight - rect.top + 8 }
-              : { top: rect.bottom + 8 }
-            ),
-            left: rect.left,
-            background: 'var(--bg-2)', border: '2px solid var(--pink)', borderRadius: '12px',
-            padding: '16px', zIndex: 9999, boxShadow: 'var(--shadow)', width: Math.max(260, rect.width)
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '12px' }}>
-              <button type="button" onClick={handlePrev} style={{ padding: '4px', boxShadow: 'none' }}><ChevronLeft size={18} /></button>
+      {open && rect && (() => {
+        const popupWidth = Math.min(Math.max(280, rect.width), window.innerWidth - 24);
+        const leftPos = Math.max(12, Math.min(rect.left, window.innerWidth - popupWidth - 12));
+        const isNearBottom = window.innerHeight - rect.bottom < 360 && rect.top > window.innerHeight - rect.bottom;
+
+        return createPortal(
+          <>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={() => setOpen(false)} />
+            <div style={{
+              position: 'fixed',
+              ...(isNearBottom
+                ? { bottom: window.innerHeight - rect.top + 8 }
+                : { top: rect.bottom + 8 }
+              ),
+              left: leftPos,
+              width: popupWidth,
+              boxSizing: 'border-box',
+              background: 'var(--bg-2)', border: '2px solid var(--pink)', borderRadius: '12px',
+              padding: '16px', zIndex: 9999, boxShadow: 'var(--shadow)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '12px' }}>
+                <button type="button" onClick={handlePrev} style={{ padding: '4px', boxShadow: 'none' }}><ChevronLeft size={18} /></button>
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <select 
@@ -194,7 +201,8 @@ export function DatePicker({ id, value, onChange }: Props) {
           </div>
         </>,
         document.body
-      )}
+      );
+    })()}
     </div>
   );
 }

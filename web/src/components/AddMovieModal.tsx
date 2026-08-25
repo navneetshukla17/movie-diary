@@ -8,6 +8,7 @@ import { Search, X } from 'lucide-react';
 
 interface Props {
   mode: string;
+  modeLabel?: string;
   onClose: () => void;
   onAdded: () => void;
   onError: (message: string) => void;
@@ -17,7 +18,7 @@ function isTvSeasonSelection(m: MetadataResult): m is TvSeasonSelection {
   return 'seasonNumber' in m && typeof (m as TvSeasonSelection).seasonNumber === 'number';
 }
 
-export function AddMovieModal({ mode, onClose, onAdded, onError }: Props) {
+export function AddMovieModal({ mode, modeLabel, onClose, onAdded, onError }: Props) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
   const [selected, setSelected] = useState<MetadataResult | TvSeasonSelection | null>(null);
@@ -84,7 +85,7 @@ export function AddMovieModal({ mode, onClose, onAdded, onError }: Props) {
 
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <h2 style={{ margin: 0 }}>Add to {mode === 'ALONE' ? 'Alone' : 'US'} list</h2>
+            <h2 style={{ margin: 0 }}>Add to {modeLabel || (mode === 'US' ? 'US' : 'Solo')} list</h2>
             <button
               onClick={onClose}
               aria-label="Close"

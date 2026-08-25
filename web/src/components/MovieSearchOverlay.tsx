@@ -30,7 +30,13 @@ export function MovieSearchOverlay({ initialQuery = '', onSelect, onCustomTitle,
 
   useEffect(() => {
     if (view === 'search') inputRef.current?.focus();
-  }, [view]);
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [view, onClose]);
 
   useEffect(() => {
     window.clearTimeout(timer.current);
@@ -129,91 +135,96 @@ export function MovieSearchOverlay({ initialQuery = '', onSelect, onCustomTitle,
   // ── Season Picker View ──────────────────────────────────────────────────
   if (view === 'season-picker' && selectedShow) {
     return (
-      <div className="search-overlay">
-        <div className="search-overlay-header">
-          <button onClick={() => setView('search')} aria-label="Back" className="search-overlay-back-btn">
-            <ArrowLeft size={22} />
-          </button>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {selectedShow.posterUrl && (
-                <img
-                  src={selectedShow.posterUrl}
-                  alt={selectedShow.title}
-                  style={{ width: 32, height: 48, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
-                />
-              )}
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 11, color: 'var(--cyan)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  📺 Pick a Season
-                </div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {selectedShow.title}
+      <>
+        <div className="search-overlay-backdrop" onClick={onClose} />
+        <div className="search-overlay">
+          <div className="search-overlay-header">
+            <button onClick={() => setView('search')} aria-label="Back" className="search-overlay-back-btn">
+              <ArrowLeft size={22} />
+            </button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {selectedShow.posterUrl && (
+                  <img
+                    src={selectedShow.posterUrl}
+                    alt={selectedShow.title}
+                    style={{ width: 32, height: 48, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
+                  />
+                )}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 11, color: 'var(--cyan)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    📺 Pick a Season
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {selectedShow.title}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="search-overlay-content">
-          {isFetchingSeasons ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, marginTop: 60 }}>
-              <Loader2 className="spinner" size={36} color="var(--cyan)" />
-              <p style={{ color: 'var(--muted)', fontSize: 14 }}>Fetching seasons from TMDB…</p>
-            </div>
-          ) : (
-            <>
-              {seasonError && (
-                <div style={{ color: 'var(--yellow)', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'rgba(251,191,36,0.1)', borderRadius: 8 }}>
-                  ⚠️ {seasonError}
-                </div>
-              )}
-
-              <div style={{ marginBottom: 8 }}>
-                <div className="search-overlay-count">
-                  {seasons.length} season{seasons.length === 1 ? '' : 's'} available — tap to select
-                </div>
+          <div className="search-overlay-content">
+            {isFetchingSeasons ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, marginTop: 60 }}>
+                <Loader2 className="spinner" size={36} color="var(--cyan)" />
+                <p style={{ color: 'var(--muted)', fontSize: 14 }}>Fetching seasons from TMDB…</p>
               </div>
+            ) : (
+              <>
+                {seasonError && (
+                  <div style={{ color: 'var(--yellow)', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'rgba(251,191,36,0.1)', borderRadius: 8 }}>
+                    ⚠️ {seasonError}
+                  </div>
+                )}
 
-              <div className="season-grid">
-                {seasons.map((s) => (
-                  <button
-                    key={s.seasonNumber}
-                    className="season-card"
-                    onClick={() => handleSeasonSelect(s)}
-                  >
-                    {s.posterUrl ? (
-                      <img src={s.posterUrl} alt={s.name} className="season-card-poster" />
-                    ) : (
-                      <div className="season-card-poster season-card-poster-placeholder">
-                        <Tv size={22} color="var(--cyan)" />
-                      </div>
-                    )}
-                    <div className="season-card-label">
-                      <span className="season-card-number">S{s.seasonNumber}</span>
-                      <span className="season-card-name">{s.name}</span>
-                      {s.episodeCount != null && (
-                        <span className="season-card-eps">{s.episodeCount} ep</span>
+                <div style={{ marginBottom: 8 }}>
+                  <div className="search-overlay-count">
+                    {seasons.length} season{seasons.length === 1 ? '' : 's'} available — tap to select
+                  </div>
+                </div>
+
+                <div className="season-grid">
+                  {seasons.map((s) => (
+                    <button
+                      key={s.seasonNumber}
+                      className="season-card"
+                      onClick={() => handleSeasonSelect(s)}
+                    >
+                      {s.posterUrl ? (
+                        <img src={s.posterUrl} alt={s.name} className="season-card-poster" />
+                      ) : (
+                        <div className="season-card-poster season-card-poster-placeholder">
+                          <Tv size={22} color="var(--cyan)" />
+                        </div>
                       )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
+                      <div className="season-card-label">
+                        <span className="season-card-number">S{s.seasonNumber}</span>
+                        <span className="season-card-name">{s.name}</span>
+                        {s.episodeCount != null && (
+                          <span className="season-card-eps">{s.episodeCount} ep</span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   // ── Search View ─────────────────────────────────────────────────────────
   return (
-    <div className="search-overlay">
-      {/* Search Header Bar */}
-      <div className="search-overlay-header">
-        <button onClick={onClose} aria-label="Back" className="search-overlay-back-btn">
-          <ArrowLeft size={22} />
-        </button>
+    <>
+      <div className="search-overlay-backdrop" onClick={onClose} />
+      <div className="search-overlay">
+        {/* Search Header Bar */}
+        <div className="search-overlay-header">
+          <button onClick={onClose} aria-label="Back" className="search-overlay-back-btn">
+            <ArrowLeft size={22} />
+          </button>
 
         <div className="search-overlay-input-wrap">
           <Search size={18} className="search-overlay-input-icon" />
@@ -348,5 +359,6 @@ export function MovieSearchOverlay({ initialQuery = '', onSelect, onCustomTitle,
         )}
       </div>
     </div>
-  );
+  </>
+);
 }

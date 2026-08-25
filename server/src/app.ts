@@ -35,6 +35,8 @@ export function createApp() {
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
+  app.all('/api/*', (_req, res) => res.status(404).json({ error: { message: 'Not found' } }));
+
   const dist = path.resolve(__dirname, '../../web/dist');
   if (fs.existsSync(dist)) {
     app.use(express.static(dist));

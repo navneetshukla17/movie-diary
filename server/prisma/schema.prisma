@@ -11,6 +11,7 @@ datasource db {
 
 enum Mode {
   ALONE
+  PARTNER
   US
 }
 
@@ -32,6 +33,8 @@ model User {
   email        String   @unique
   passwordHash String
   defaultMode  Mode     @default(ALONE)
+  person1Name  String   @default("Me")
+  person2Name  String   @default("Partner")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   lists        List[]

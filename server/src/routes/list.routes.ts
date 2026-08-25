@@ -34,7 +34,7 @@ router.post(
     const existing = await prisma.movie.findUnique({
       where: { listId_title: { listId: list.id, title: cleanTitle } },
     });
-    if (existing) throw new HttpError(409, `"${cleanTitle}" is already in your ${mode === 'ALONE' ? 'Alone' : 'US'} list`);
+    if (existing) throw new HttpError(409, `"${cleanTitle}" is already in this list`);
     if (personalRating != null && (typeof personalRating !== 'number' || personalRating < 1 || personalRating > 10)) {
       throw new HttpError(400, 'personalRating must be between 1 and 10');
     }

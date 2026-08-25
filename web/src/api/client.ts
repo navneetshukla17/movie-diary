@@ -1,7 +1,11 @@
+export type Mode = 'ALONE' | 'PARTNER' | 'US';
+
 export interface User {
   id: string;
   email: string;
-  defaultMode: 'ALONE' | 'US';
+  defaultMode: Mode;
+  person1Name: string;
+  person2Name: string;
 }
 
 export interface Movie {
@@ -98,10 +102,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  signup: (email: string, password: string, defaultMode: string) =>
+  signup: (email: string, password: string, defaultMode?: Mode, person1Name?: string, person2Name?: string) =>
     request<{ token: string; user: User }>('/auth/signup', {
       method: 'POST',
-      body: JSON.stringify({ email, password, defaultMode }),
+      body: JSON.stringify({ email, password, defaultMode, person1Name, person2Name }),
     }),
   login: (email: string, password: string) =>
     request<{ token: string; user: User }>('/auth/login', {
@@ -109,6 +113,8 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
   me: () => request<{ user: User }>('/auth/me'),
+  updateProfile: (data: { defaultMode?: Mode; person1Name?: string; person2Name?: string }) =>
+    request<{ token: string; user: User }>('/auth/me', { method: 'PATCH', body: JSON.stringify(data) }),
   updateMe: (defaultMode: string) =>
     request<{ token: string; user: User }>('/auth/me', { method: 'PATCH', body: JSON.stringify({ defaultMode }) }),
   updatePassword: (currentPassword: string, newPassword: string) =>
