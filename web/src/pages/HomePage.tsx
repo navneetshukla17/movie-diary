@@ -31,7 +31,6 @@ export function HomePage() {
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'WATCHING' | 'FINISHED' | 'PLANNED'>('ALL');
@@ -147,21 +146,22 @@ export function HomePage() {
     }
   }
 
-  const settingsRef = useRef<HTMLDivElement>(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menus when clicking outside
   useEffect(() => {
     function handleOutsideClick(e: MouseEvent | TouchEvent) {
-      if (showSettings && settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
-        setShowSettings(false);
+      if (showProfileMenu && profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setShowProfileMenu(false);
       }
       if (showMenu && menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setShowMenu(false);
       }
     }
 
-    if (showSettings || showMenu) {
+    if (showProfileMenu || showMenu) {
       document.addEventListener('mousedown', handleOutsideClick);
       document.addEventListener('touchstart', handleOutsideClick);
     }
@@ -169,7 +169,7 @@ export function HomePage() {
       document.removeEventListener('mousedown', handleOutsideClick);
       document.removeEventListener('touchstart', handleOutsideClick);
     };
-  }, [showSettings, showMenu]);
+  }, [showProfileMenu, showMenu]);
 
   // Split into Movies and TV shows
   const movieEntries = useMemo(() => entries.filter((e) => e.movie.mediaType !== 'tv'), [entries]);
@@ -233,10 +233,39 @@ export function HomePage() {
   return (
     <div className="page">
       <header className="topbar">
+        {/* Left: Diary Profile Switcher (Profile Icon + Desktop Pills) */}
         <div className="header-group-left">
-          <button aria-label="Profile" onClick={() => navigate('/profile')} className="header-icon-btn">
-            <User size={22} />
-          </button>
+          <div ref={profileRef} style={{ position: 'relative' }}>
+            <button
+              aria-label="Diary Profile"
+              onClick={() => setShowProfileMenu(!showProfileMenu)}
+              className={`header-icon-btn ${showProfileMenu ? 'active' : ''}`}
+              title={`Diary Profile: ${getModeLabel(mode)}`}
+            >
+              <User size={22} />
+            </button>
+            {/* Mobile Profile Switcher Popover */}
+            {showProfileMenu && (
+              <div style={{
+                position: 'absolute', left: 0, top: '100%', marginTop: '8px',
+                background: 'var(--bg-2)', border: '2px solid var(--muted)',
+                borderRadius: '12px', padding: '12px', zIndex: 140,
+                display: 'flex', flexDirection: 'column', gap: '8px',
+                minWidth: '220px', boxShadow: 'var(--shadow)',
+              }}>
+                <label style={{ margin: 0, color: 'var(--cyan)', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Diary Profile
+                </label>
+                <div className="mode-toggle" style={{ margin: 0, display: 'flex' }}>
+                  <button style={{ flex: 1 }} className={mode === 'ALONE' ? 'active' : ''} onClick={() => { setMode('ALONE'); setShowProfileMenu(false); }}>{person1}</button>
+                  <button style={{ flex: 1 }} className={mode === 'PARTNER' ? 'active' : ''} onClick={() => { setMode('PARTNER'); setShowProfileMenu(false); }}>{person2}</button>
+                  <button style={{ flex: 1 }} className={mode === 'US' ? 'active' : ''} onClick={() => { setMode('US'); setShowProfileMenu(false); }}>US</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Desktop inline mode switcher pills */}
           <div className="desktop-mode-toggle mode-toggle">
             <button className={mode === 'ALONE' ? 'active' : ''} onClick={() => setMode('ALONE')}>{person1}</button>
             <button className={mode === 'PARTNER' ? 'active' : ''} onClick={() => setMode('PARTNER')}>{person2}</button>
@@ -244,50 +273,28 @@ export function HomePage() {
           </div>
         </div>
 
+        {/* Center: Movie Diary marquee logo */}
         <div className={`logo-container ${celebration.active ? 'marquee-neon-glowing' : ''}`}>
           <img src="/home-logo.png" alt="Movie Diary" className="header-logo-img" />
         </div>
 
+        {/* Right: Settings Icon (Navigates to Profile/Settings) */}
         <div className="header-group-right">
-          <div ref={settingsRef} style={{ position: 'relative', zIndex: showSettings ? 110 : 'auto' }}>
-            <button
-              onClick={() => {
-                setShowMenu(false);
-                setShowSettings(!showSettings);
-              }}
-              aria-label="Settings"
-              className={`header-icon-btn ${showSettings ? 'active' : ''}`}
-            >
-              <SettingsIcon size={22} />
-            </button>
-            {showSettings && (
-              <div style={{
-                position: 'absolute', right: 0, top: '100%', marginTop: '8px',
-                background: 'var(--bg-2)', border: '2px solid var(--muted)',
-                borderRadius: '8px', padding: '12px', zIndex: 120,
-                display: 'flex', flexDirection: 'column', gap: '12px',
-                minWidth: '240px', boxShadow: 'var(--shadow)',
-              }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <label style={{ margin: 0, color: 'var(--cyan)', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Diary Profile
-                  </label>
-                  <div className="mode-toggle" style={{ margin: 0, display: 'flex' }}>
-                    <button style={{ flex: 1 }} className={mode === 'ALONE' ? 'active' : ''} onClick={() => { setMode('ALONE'); setShowSettings(false); }}>{person1}</button>
-                    <button style={{ flex: 1 }} className={mode === 'PARTNER' ? 'active' : ''} onClick={() => { setMode('PARTNER'); setShowSettings(false); }}>{person2}</button>
-                    <button style={{ flex: 1 }} className={mode === 'US' ? 'active' : ''} onClick={() => { setMode('US'); setShowSettings(false); }}>US</button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <button
+            onClick={() => navigate('/profile')}
+            aria-label="Settings"
+            className="header-icon-btn"
+            title="Settings"
+          >
+            <SettingsIcon size={22} />
+          </button>
         </div>
       </header>
 
       {/* Sticky Search & Toolbar Row */}
       <div className={`search-row ${isScrolled ? 'scrolled' : ''}`} style={{ zIndex: showMenu ? 120 : 90 }}>
         <div className="search-row-input">
-          <SearchBar value={search} onChange={setSearch} />
+          <SearchBar value={search} placeholder={`Search ${getModeLabel(mode)}'s diary…`} onChange={setSearch} />
         </div>
 
         {/* Desktop Direct Action Buttons */}
@@ -303,14 +310,11 @@ export function HomePage() {
           </button>
         </div>
 
-        {/* Mobile 3-dot Menu */}
-        <div className="mobile-menu-btn" style={{ display: isScrolled ? 'none' : 'flex', gap: '8px' }}>
+        {/* Mobile 3-dot Menu (Only rendered on mobile screens via CSS) */}
+        <div className="mobile-menu-btn">
           <div ref={menuRef} style={{ position: 'relative', zIndex: showMenu ? 130 : 'auto' }}>
             <button
-              onClick={() => {
-                setShowSettings(false);
-                setShowMenu(!showMenu);
-              }}
+              onClick={() => setShowMenu(!showMenu)}
               aria-label="Menu"
               className={`header-icon-btn ${showMenu ? 'active' : ''} ${isEmpty ? 'empty-cta-pulse' : ''}`}
             >

@@ -2,18 +2,19 @@ import { Search, X } from 'lucide-react';
 
 interface Props {
   value: string;
+  placeholder?: string;
   onChange: (value: string) => void;
 }
 
-export function SearchBar({ value, onChange }: Props) {
+export function SearchBar({ value, placeholder = 'Search movies & TV shows…', onChange }: Props) {
   return (
     <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
       <Search size={20} style={{ position: 'absolute', left: '16px', color: 'var(--muted)' }} />
       <input
         className="search-bar"
         type="search"
-        aria-label="Search all lists"
-        placeholder="Search all lists…"
+        aria-label="Search diary"
+        placeholder={placeholder}
         autoComplete="off"
         value={value}
         onChange={(e) => onChange(e.target.value)}

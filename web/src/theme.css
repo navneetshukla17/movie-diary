@@ -229,7 +229,7 @@ label { display: block; margin: 8px 0 4px; font-size: 12px; color: var(--muted);
   border-color: var(--cyan);
 }
 .mobile-menu-btn {
-  display: none;
+  display: none !important;
 }
 
 /* Media tabs bar */
