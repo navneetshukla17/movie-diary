@@ -110,7 +110,7 @@ export const api = {
     }),
   me: () => request<{ user: User }>('/auth/me'),
   updateMe: (defaultMode: string) =>
-    request<{ user: User }>('/auth/me', { method: 'PATCH', body: JSON.stringify({ defaultMode }) }),
+    request<{ token: string; user: User }>('/auth/me', { method: 'PATCH', body: JSON.stringify({ defaultMode }) }),
   updatePassword: (currentPassword: string, newPassword: string) =>
     request<{ success: boolean }>('/auth/password', {
       method: 'PATCH',

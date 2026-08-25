@@ -30,6 +30,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
+  // Keep the Vercel serverless function warm so requests don't hit cold starts.
+  // Pings /api/health every 8 minutes — lightweight, fire-and-forget.
+  useEffect(() => {
+    const ping = () => fetch('/api/health').catch(() => {});
+    ping(); // warm up immediately on mount
+    const id = setInterval(ping, 8 * 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const login = useCallback(async (email: string, password: string) => {
     const { token, user } = await api.login(email, password);
     setToken(token);

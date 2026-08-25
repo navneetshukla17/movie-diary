@@ -39,7 +39,7 @@ router.post(
         },
       },
     });
-    const token = jwt.sign({ userId: user.id }, config.jwtSecret, { expiresIn: '30d' });
+    const token = jwt.sign({ userId: user.id, email: user.email, defaultMode: user.defaultMode }, config.jwtSecret, { expiresIn: '30d' });
     res.status(201).json({ token, user: toUserJson(user) });
   }),
 );
@@ -51,7 +51,7 @@ router.post(
     if (typeof email !== 'string' || typeof password !== 'string') throw new HttpError(400, 'Email and password are required');
     const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) throw new HttpError(401, 'Invalid email or password');
-    const token = jwt.sign({ userId: user.id }, config.jwtSecret, { expiresIn: '30d' });
+    const token = jwt.sign({ userId: user.id, email: user.email, defaultMode: user.defaultMode }, config.jwtSecret, { expiresIn: '30d' });
     res.status(200).json({ token, user: toUserJson(user) });
   }),
 );
@@ -71,7 +71,8 @@ router.patch(
     const { defaultMode } = req.body ?? {};
     if (!MODES.includes(defaultMode)) throw new HttpError(400, 'defaultMode must be ALONE or US');
     const user = await prisma.user.update({ where: { id: req.user!.id }, data: { defaultMode } });
-    res.json({ user: toUserJson(user) });
+    const token = jwt.sign({ userId: user.id, email: user.email, defaultMode: user.defaultMode }, config.jwtSecret, { expiresIn: '30d' });
+    res.json({ token, user: toUserJson(user) });
   }),
 );
 
