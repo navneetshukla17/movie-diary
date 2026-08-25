@@ -1155,7 +1155,20 @@ label { display: block; margin: 8px 0 4px; font-size: 12px; color: var(--muted);
   .desktop-actions { display: none !important; }
   .mobile-header-btn { display: flex !important; }
   .mobile-menu-btn { display: flex !important; }
-  .header-group-left, .header-group-right { min-width: unset; gap: 0; }
+  .header-group-left, .header-group-right {
+    width: 44px;
+    flex: 0 0 44px;
+    min-width: 44px;
+    gap: 0;
+    display: flex;
+    align-items: center;
+  }
+  .header-group-left {
+    justify-content: flex-start;
+  }
+  .header-group-right {
+    justify-content: flex-end;
+  }
 
   /* Header: tighter, row layout */
   .topbar {
@@ -1166,17 +1179,23 @@ label { display: block; margin: 8px 0 4px; font-size: 12px; color: var(--muted);
     padding: 8px 0 2px;
     margin-bottom: 0;
     flex-wrap: nowrap;
+    position: relative;
   }
   .topbar-right { display: none !important; }
   .logo-container {
     flex: 1;
-    max-width: 320px;
+    max-width: 360px;
     display: flex;
     justify-content: center;
     align-items: center;
+    margin: 0 auto;
+    text-align: center;
   }
   .header-logo-img {
-    max-height: 90px;
+    max-height: 100px;
+    width: auto;
+    object-fit: contain;
+    margin: 0 auto;
   }
   .logo { font-size: 20px; }
 
@@ -1269,8 +1288,13 @@ label { display: block; margin: 8px 0 4px; font-size: 12px; color: var(--muted);
 
 /* Extra small mobile screens (<= 380px) */
 @media (max-width: 380px) {
+  .header-group-left, .header-group-right {
+    width: 40px;
+    flex: 0 0 40px;
+    min-width: 40px;
+  }
   .header-logo-img {
-    max-height: 74px;
+    max-height: 82px;
   }
   .header-icon-btn {
     width: 40px;
