@@ -233,24 +233,16 @@ export function HomePage() {
   return (
     <div className="page">
       <header className="topbar">
-        {/* Left: Mobile Settings Button / Desktop Mode Switcher Pills */}
-        <div className="header-group-left">
-          {/* Mobile-only Settings button on the left */}
+        {/* Left: Mobile Settings Button (hidden on desktop) */}
+        <div className="header-group-left mobile-header-btn">
           <button
             onClick={() => navigate('/profile')}
             aria-label="Settings"
-            className="header-icon-btn mobile-header-btn"
+            className="header-icon-btn"
             title="Settings"
           >
             <SettingsIcon size={22} />
           </button>
-
-          {/* Desktop inline mode switcher pills */}
-          <div className="desktop-mode-toggle mode-toggle">
-            <button className={mode === 'ALONE' ? 'active' : ''} onClick={() => setMode('ALONE')}>{person1}</button>
-            <button className={mode === 'PARTNER' ? 'active' : ''} onClick={() => setMode('PARTNER')}>{person2}</button>
-            <button className={mode === 'US' ? 'active' : ''} onClick={() => setMode('US')}>US</button>
-          </div>
         </div>
 
         {/* Center: Movie Diary marquee logo */}
@@ -258,10 +250,9 @@ export function HomePage() {
           <img src="/home-logo.png" alt="Movie Diary" className="header-logo-img" />
         </div>
 
-        {/* Right: Mobile Profile Switcher / Desktop Right Spacer */}
-        <div className="header-group-right">
-          {/* Mobile-only Profile button on the right with popover */}
-          <div ref={profileRef} className="mobile-header-btn" style={{ position: 'relative' }}>
+        {/* Right: Mobile Profile Switcher (hidden on desktop) */}
+        <div className="header-group-right mobile-header-btn">
+          <div ref={profileRef} style={{ position: 'relative' }}>
             <button
               aria-label="Diary Profile"
               onClick={() => setShowProfileMenu(!showProfileMenu)}
@@ -295,6 +286,13 @@ export function HomePage() {
 
       {/* Sticky Search & Toolbar Row */}
       <div className={`search-row ${isScrolled ? 'scrolled' : ''}`} style={{ zIndex: showMenu ? 120 : 90 }}>
+        {/* Desktop Mode Switcher Pills (inline on the left of search bar) */}
+        <div className="desktop-mode-toggle mode-toggle">
+          <button className={mode === 'ALONE' ? 'active' : ''} onClick={() => setMode('ALONE')}>{person1}</button>
+          <button className={mode === 'PARTNER' ? 'active' : ''} onClick={() => setMode('PARTNER')}>{person2}</button>
+          <button className={mode === 'US' ? 'active' : ''} onClick={() => setMode('US')}>US</button>
+        </div>
+
         <div className="search-row-input">
           <SearchBar value={search} placeholder={`Search ${getModeLabel(mode)}'s diary…`} onChange={setSearch} />
         </div>
