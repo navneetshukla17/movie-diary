@@ -1170,13 +1170,13 @@ label { display: block; margin: 8px 0 4px; font-size: 12px; color: var(--muted);
   .topbar-right { display: none !important; }
   .logo-container {
     flex: 1;
-    max-width: 280px;
+    max-width: 320px;
     display: flex;
     justify-content: center;
     align-items: center;
   }
   .header-logo-img {
-    max-height: 78px;
+    max-height: 90px;
   }
   .logo { font-size: 20px; }
 
@@ -1270,7 +1270,7 @@ label { display: block; margin: 8px 0 4px; font-size: 12px; color: var(--muted);
 /* Extra small mobile screens (<= 380px) */
 @media (max-width: 380px) {
   .header-logo-img {
-    max-height: 56px;
+    max-height: 74px;
   }
   .header-icon-btn {
     width: 40px;

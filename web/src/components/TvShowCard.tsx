@@ -214,7 +214,7 @@ export function TvShowCard({
           </button>
 
           {/* Edit / Delete action buttons for the active season */}
-          <div className="card-actions" style={{ marginTop: 6 }}>
+          <div className="card-actions">
             <button
               onClick={(e) => {
                 e.stopPropagation();
