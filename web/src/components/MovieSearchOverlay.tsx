@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, type MetadataResult, type TvSeason, type TvSeasonSelection } from '../api/client';
-import { ArrowLeft, Search, Loader2, X, Star, Tv } from 'lucide-react';
+import { ArrowLeft, Search, Loader2, X, Star, Tv, Check } from 'lucide-react';
 
 interface Props {
   initialQuery?: string;
@@ -21,6 +21,7 @@ export function MovieSearchOverlay({ initialQuery = '', onSelect, onCustomTitle,
   const [view, setView] = useState<View>('search');
   const [selectedShow, setSelectedShow] = useState<MetadataResult | null>(null);
   const [seasons, setSeasons] = useState<TvSeason[]>([]);
+  const [selectedSeasonNumbers, setSelectedSeasonNumbers] = useState<Set<number>>(new Set());
   const [isFetchingSeasons, setIsFetchingSeasons] = useState(false);
   const [seasonError, setSeasonError] = useState<string | null>(null);
 
@@ -79,6 +80,7 @@ export function MovieSearchOverlay({ initialQuery = '', onSelect, onCustomTitle,
     setIsFetchingSeasons(true);
     setSeasonError(null);
     setSeasons([]);
+    setSelectedSeasonNumbers(new Set());
 
     const tmdbId = extractTmdbId(show);
     if (!tmdbId) {
@@ -111,19 +113,60 @@ export function MovieSearchOverlay({ initialQuery = '', onSelect, onCustomTitle,
     }
   }
 
-  function handleSeasonSelect(season: TvSeason) {
-    if (!selectedShow) return;
+  function toggleSeason(seasonNumber: number) {
+    setSelectedSeasonNumbers((prev) => {
+      const next = new Set(prev);
+      if (next.has(seasonNumber)) {
+        next.delete(seasonNumber);
+      } else {
+        next.add(seasonNumber);
+      }
+      return next;
+    });
+  }
+
+  function handleSelectAllSeasons() {
+    if (selectedSeasonNumbers.size === seasons.length) {
+      setSelectedSeasonNumbers(new Set());
+    } else {
+      setSelectedSeasonNumbers(new Set(seasons.map((s) => s.seasonNumber)));
+    }
+  }
+
+  function handleConfirmSeasons() {
+    if (!selectedShow || selectedSeasonNumbers.size === 0) return;
     const tmdbId = extractTmdbId(selectedShow) ?? '';
-    const selection: TvSeasonSelection = {
-      ...selectedShow,
-      title: `${selectedShow.title} — Season ${season.seasonNumber}`,
-      seasonNumber: season.seasonNumber,
-      seasonName: season.name,
-      showTitle: selectedShow.title,
-      showPosterUrl: selectedShow.posterUrl,
-      tmdbId,
-    };
-    onSelect(selection);
+    const chosenSeasons = seasons
+      .filter((s) => selectedSeasonNumbers.has(s.seasonNumber))
+      .sort((a, b) => a.seasonNumber - b.seasonNumber);
+
+    if (chosenSeasons.length === 1) {
+      const single = chosenSeasons[0];
+      const selection: TvSeasonSelection = {
+        ...selectedShow,
+        title: `${selectedShow.title} — Season ${single.seasonNumber}`,
+        seasonNumber: single.seasonNumber,
+        seasonName: single.name,
+        showTitle: selectedShow.title,
+        showPosterUrl: selectedShow.posterUrl,
+        tmdbId,
+        selectedSeasons: [single],
+      };
+      onSelect(selection);
+    } else {
+      const seasonNums = chosenSeasons.map((s) => s.seasonNumber).join(', S');
+      const selection: TvSeasonSelection = {
+        ...selectedShow,
+        title: `${selectedShow.title} (${chosenSeasons.length} Seasons)`,
+        seasonNumber: chosenSeasons[0].seasonNumber,
+        seasonName: `${chosenSeasons.length} Seasons (S${seasonNums})`,
+        showTitle: selectedShow.title,
+        showPosterUrl: selectedShow.posterUrl,
+        tmdbId,
+        selectedSeasons: chosenSeasons,
+      };
+      onSelect(selection);
+    }
     onClose();
   }
 
@@ -134,6 +177,8 @@ export function MovieSearchOverlay({ initialQuery = '', onSelect, onCustomTitle,
 
   // ── Season Picker View ──────────────────────────────────────────────────
   if (view === 'season-picker' && selectedShow) {
+    const allSelected = seasons.length > 0 && selectedSeasonNumbers.size === seasons.length;
+
     return (
       <>
         <div className="search-overlay-backdrop" onClick={onClose} />
@@ -153,7 +198,7 @@ export function MovieSearchOverlay({ initialQuery = '', onSelect, onCustomTitle,
                 )}
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 11, color: 'var(--cyan)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    📺 Pick a Season
+                    📺 Select Seasons
                   </div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {selectedShow.title}
@@ -161,6 +206,24 @@ export function MovieSearchOverlay({ initialQuery = '', onSelect, onCustomTitle,
                 </div>
               </div>
             </div>
+            {seasons.length > 0 && !isFetchingSeasons && (
+              <button
+                type="button"
+                onClick={handleSelectAllSeasons}
+                className="mini-btn"
+                style={{
+                  fontSize: 12,
+                  padding: '6px 12px',
+                  background: allSelected ? 'var(--green)' : 'rgba(103, 232, 249, 0.15)',
+                  color: allSelected ? '#1a1033' : 'var(--cyan)',
+                  borderColor: allSelected ? 'var(--green)' : 'var(--cyan)',
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {allSelected ? '✓ All Selected' : 'Select All'}
+              </button>
+            )}
           </div>
 
           <div className="search-overlay-content">
@@ -177,36 +240,72 @@ export function MovieSearchOverlay({ initialQuery = '', onSelect, onCustomTitle,
                   </div>
                 )}
 
-                <div style={{ marginBottom: 8 }}>
-                  <div className="search-overlay-count">
-                    {seasons.length} season{seasons.length === 1 ? '' : 's'} available — tap to select
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
+                  <div className="search-overlay-count" style={{ margin: 0 }}>
+                    {selectedSeasonNumbers.size > 0 ? (
+                      <span style={{ color: 'var(--green)', fontWeight: 700 }}>
+                        ✓ {selectedSeasonNumbers.size} of {seasons.length} season{seasons.length === 1 ? '' : 's'} selected
+                      </span>
+                    ) : (
+                      <span>Tap seasons to select, or click "Select All"</span>
+                    )}
                   </div>
                 </div>
 
-                <div className="season-grid">
-                  {seasons.map((s) => (
-                    <button
-                      key={s.seasonNumber}
-                      className="season-card"
-                      onClick={() => handleSeasonSelect(s)}
-                    >
-                      {s.posterUrl ? (
-                        <img src={s.posterUrl} alt={s.name} className="season-card-poster" />
-                      ) : (
-                        <div className="season-card-poster season-card-poster-placeholder">
-                          <Tv size={22} color="var(--cyan)" />
+                <div className="season-grid" style={{ paddingBottom: selectedSeasonNumbers.size > 0 ? '70px' : '0' }}>
+                  {seasons.map((s) => {
+                    const isSelected = selectedSeasonNumbers.has(s.seasonNumber);
+                    return (
+                      <button
+                        key={s.seasonNumber}
+                        type="button"
+                        className={`season-card ${isSelected ? 'selected' : ''}`}
+                        onClick={() => toggleSeason(s.seasonNumber)}
+                        style={{ position: 'relative' }}
+                      >
+                        <div className="season-card-checkbox">
+                          {isSelected && <Check size={14} strokeWidth={3} />}
                         </div>
-                      )}
-                      <div className="season-card-label">
-                        <span className="season-card-number">S{s.seasonNumber}</span>
-                        <span className="season-card-name">{s.name}</span>
-                        {s.episodeCount != null && (
-                          <span className="season-card-eps">{s.episodeCount} ep</span>
+                        {s.posterUrl ? (
+                          <img src={s.posterUrl} alt={s.name} className="season-card-poster" />
+                        ) : (
+                          <div className="season-card-poster season-card-poster-placeholder">
+                            <Tv size={22} color="var(--cyan)" />
+                          </div>
                         )}
-                      </div>
-                    </button>
-                  ))}
+                        <div className="season-card-label">
+                          <span className="season-card-number">S{s.seasonNumber}</span>
+                          <span className="season-card-name">{s.name}</span>
+                          {s.episodeCount != null && (
+                            <span className="season-card-eps">{s.episodeCount} ep</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
+
+                {/* Sticky bottom confirm action bar */}
+                {selectedSeasonNumbers.size > 0 && (
+                  <div className="season-picker-actions-bar">
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
+                        {selectedSeasonNumbers.size} Season{selectedSeasonNumbers.size > 1 ? 's' : ''} Chosen
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--cyan)', fontWeight: 600 }}>
+                        S{Array.from(selectedSeasonNumbers).sort((a, b) => a - b).join(', S')}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={handleConfirmSeasons}
+                      style={{ padding: '8px 16px', fontSize: 13, fontWeight: 700 }}
+                    >
+                      Add {selectedSeasonNumbers.size} Season{selectedSeasonNumbers.size > 1 ? 's' : ''} →
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>

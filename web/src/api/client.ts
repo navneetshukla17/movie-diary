@@ -59,6 +59,7 @@ export interface TvSeasonSelection extends MetadataResult {
   showTitle: string;
   showPosterUrl: string | null;
   tmdbId: string;
+  selectedSeasons?: TvSeason[];
 }
 
 const TOKEN_KEY = 'movie_list_token';

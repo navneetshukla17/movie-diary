@@ -32,9 +32,50 @@ export function AddMovieModal({ mode, modeLabel, onClose, onAdded, onError }: Pr
 
   const isTv = selected ? isTvSeasonSelection(selected) : false;
   const tvSel = isTv ? (selected as TvSeasonSelection) : null;
+  const isMultiSeason = Boolean(tvSel?.selectedSeasons && tvSel.selectedSeasons.length > 1);
+  const multiCount = tvSel?.selectedSeasons?.length ?? 1;
 
   const mutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
+      // Multiple seasons batch addition
+      if (isMultiSeason && tvSel?.selectedSeasons) {
+        const results = [];
+        for (const s of tvSel.selectedSeasons) {
+          const body: Parameters<typeof api.addMovie>[1] = {
+            title: `${tvSel.showTitle} — Season ${s.seasonNumber}`,
+            watchedDate: watchStatus === 'PLANNED' ? null : (watchedDate ? new Date(watchedDate).toISOString() : null),
+            plannedDate: watchStatus === 'PLANNED' && plannedDate ? new Date(plannedDate).toISOString() : null,
+            personalRating,
+            review: review.trim() || null,
+            watchStatus,
+            metadata: {
+              ...tvSel,
+              title: `${tvSel.showTitle} — Season ${s.seasonNumber}`,
+              posterUrl: s.posterUrl || tvSel.showPosterUrl || tvSel.posterUrl,
+            },
+            mediaType: 'tv',
+            seasonNumber: s.seasonNumber,
+            showTitle: tvSel.showTitle,
+            showPosterUrl: tvSel.showPosterUrl ?? null,
+            tmdbId: tvSel.tmdbId,
+            episodeProgress: null,
+          };
+          try {
+            const added = await api.addMovie(mode, body);
+            results.push(added);
+          } catch (err: unknown) {
+            const errorObj = err as { status?: number; message?: string };
+            // If already exists in this list (409 conflict), skip gracefully
+            if (errorObj?.status === 409 || errorObj?.message?.includes('already in this list')) {
+              continue;
+            }
+            throw err;
+          }
+        }
+        return results;
+      }
+
+      // Single entry
       const body: Parameters<typeof api.addMovie>[1] = {
         title: title.trim(),
         watchedDate: watchStatus === 'PLANNED' ? null : (watchedDate ? new Date(watchedDate).toISOString() : null),
@@ -115,7 +156,7 @@ export function AddMovieModal({ mode, modeLabel, onClose, onAdded, onError }: Pr
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: isTv ? 'var(--cyan)' : 'var(--green)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  ✓ {isTv ? `📺 TV Show — Season ${tvSel?.seasonNumber}` : '🎬 Movie Selected'}
+                  ✓ {isTv ? (isMultiSeason ? `📺 TV Show — ${multiCount} Seasons Selected` : `📺 TV Show — Season ${tvSel?.seasonNumber}`) : '🎬 Movie Selected'}
                 </div>
                 {isTv && (
                   <div style={{ fontSize: 13, color: 'var(--muted)', margin: '1px 0 2px' }}>
@@ -123,8 +164,28 @@ export function AddMovieModal({ mode, modeLabel, onClose, onAdded, onError }: Pr
                   </div>
                 )}
                 <h3 style={{ margin: '2px 0 4px', fontSize: isTv ? 14 : 16, color: 'var(--text)', lineHeight: 1.25 }}>
-                  {isTv ? tvSel?.seasonName : selected.title}
+                  {isMultiSeason ? `${tvSel?.showTitle} (${multiCount} Seasons)` : (isTv ? tvSel?.seasonName : selected.title)}
                 </h3>
+                {isMultiSeason && tvSel?.selectedSeasons && (
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', margin: '4px 0 6px' }}>
+                    {tvSel.selectedSeasons.map((s) => (
+                      <span
+                        key={s.seasonNumber}
+                        style={{
+                          fontSize: 10,
+                          background: 'rgba(103, 232, 249, 0.15)',
+                          color: 'var(--cyan)',
+                          border: '1px solid var(--cyan)',
+                          padding: '1px 5px',
+                          borderRadius: 4,
+                          fontWeight: 700,
+                        }}
+                      >
+                        S{s.seasonNumber}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                   {selected.year && <span className="suggestion-badge year">{selected.year}</span>}
                   <span className={`suggestion-badge type-${selected.mediaType}`}>
@@ -162,8 +223,8 @@ export function AddMovieModal({ mode, modeLabel, onClose, onAdded, onError }: Pr
             </div>
           )}
 
-          {/* Episode progress — TV only */}
-          {isTv && (
+          {/* Episode progress — TV single season only */}
+          {isTv && !isMultiSeason && (
             <div style={{ marginBottom: 14 }}>
               <label htmlFor="add-episode-progress" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 📺 Episode reached
@@ -238,7 +299,13 @@ export function AddMovieModal({ mode, modeLabel, onClose, onAdded, onError }: Pr
           <div className="modal-actions">
             <button disabled={mutation.isPending} onClick={onClose}>Cancel</button>
             <button className="primary" disabled={!title.trim() || mutation.isPending} onClick={() => mutation.mutate()}>
-              {isTv ? '📺 Add Season' : '🎬 Add Movie'}
+              {mutation.isPending
+                ? 'Adding…'
+                : isMultiSeason
+                ? `📺 Add ${multiCount} Seasons`
+                : isTv
+                ? '📺 Add Season'
+                : '🎬 Add Movie'}
             </button>
           </div>
         </div>
